@@ -40,6 +40,12 @@ pub trait Storage<T>: Clone + Debug + Send + Sync {
 }
 
 /// Trait bound for elements that can be stored in a Tensor.
+///
+/// # Requirements
+/// - `Copy + Clone`: Essential for efficient storage in contiguous memory (e.g., `Vec<T>`) and fast element access.
+/// - `'static`: Simplifies the type system by avoiding complex lifetime management in generic Tensor structs, assuming data ownership.
+/// - `Num + ...`: Provides necessary numeric operations for tensor math.
+/// - `Send + Sync`: Required for parallel execution via `rayon`.
 pub trait TensorElem:
     Num + NumAssign + Copy + Clone + Debug + Send + Sync + FromPrimitive + ToPrimitive + PartialOrd + 'static
 {}
