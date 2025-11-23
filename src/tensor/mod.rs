@@ -3,6 +3,8 @@ use std::fmt::Debug;
 use thiserror::Error;
 
 pub mod ops;
+#[cfg(test)]
+mod tests;
 
 /// Error type for Tensor operations.
 #[derive(Error, Debug)]
