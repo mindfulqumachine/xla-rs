@@ -2,6 +2,15 @@ use crate::tensor::{Tensor, TensorElem, Cpu, Result};
 use std::fmt::Debug;
 use num_traits::Float;
 
+/// Constants for Linear Layer
+const WEIGHT_RANK: usize = 2;
+const BIAS_RANK: usize = 1;
+
+/// Trait to enforce allowed ranks for Linear layer forward pass.
+pub trait AllowedLinearRank<const N: usize> {}
+impl AllowedLinearRank<2> for () {}
+impl AllowedLinearRank<3> for () {}
+
 /// A Module trait for Neural Network layers.
 pub trait Module<T: TensorElem>: Debug + Send + Sync {
 }
@@ -9,16 +18,22 @@ pub trait Module<T: TensorElem>: Debug + Send + Sync {
 /// Linear Layer: y = xA^T + b
 #[derive(Debug)]
 pub struct Linear<T: TensorElem> {
-    pub weight: Tensor<T, 2, Cpu>,
-    pub bias: Option<Tensor<T, 1, Cpu>>,
+    pub weight: Tensor<T, WEIGHT_RANK, Cpu>,
+    pub bias: Option<Tensor<T, BIAS_RANK, Cpu>>,
 }
 
 impl<T: TensorElem> Linear<T> {
-    pub fn new(weight: Tensor<T, 2, Cpu>, bias: Option<Tensor<T, 1, Cpu>>) -> Self {
+    pub fn new(weight: Tensor<T, WEIGHT_RANK, Cpu>, bias: Option<Tensor<T, BIAS_RANK, Cpu>>) -> Self {
         Self { weight, bias }
     }
 
-    pub fn forward<const RANK: usize>(&self, x: &Tensor<T, RANK, Cpu>) -> Result<Tensor<T, RANK, Cpu>> {
+    pub fn forward<const RANK: usize>(&self, x: &Tensor<T, RANK, Cpu>) -> Result<Tensor<T, RANK, Cpu>>
+    where (): AllowedLinearRank<RANK>
+    {
+        // Compile-time check (redundant with trait bound but satisfies request for safer check if desired,
+        // but trait bound `AllowedLinearRank` actually prevents compilation for other ranks, so strictly unnecessary
+        // to assert constant. However, we'll stick to the logic that handles 2 and 3).
+
         let w_t = self.weight.transpose()?;
 
         if RANK == 3 {
@@ -43,14 +58,10 @@ impl<T: TensorElem> Linear<T> {
                  Ok(ret)
              }
         } else {
-             // Here we assume RANK == 2.
-             // But we cannot prove it to the compiler.
-             // We need to cast `w_t` (Rank 2) to `Tensor<T, RANK>` unsafely to call `matmul`.
-             // This is dangerous if RANK != 2, so we assert.
+             // RANK == 2 guaranteed by AllowedLinearRank<RANK> if not 3
 
-             if RANK != 2 {
-                 return Err(crate::tensor::TensorError::Unsupported(format!("Linear support Rank 2 or 3, got {}", RANK)));
-             }
+             // We need to cast `w_t` (Rank 2) to `Tensor<T, RANK>` unsafely to call `matmul`
+             // because compiler sees generic RANK.
 
              let w_t_cast: &Tensor<T, RANK, Cpu> = unsafe {
                  std::mem::transmute(&w_t)
