@@ -145,6 +145,15 @@ where
                                 }
                                 out_matrix[r * n + c] = sum;
                             }
+                    for r in 0..m {
+                        for c in 0..n {
+                            let mut sum = T::zero();
+                            for l in 0..k {
+                                let val_a = self.data.as_slice()[a_offset + r * self.strides[1] + l * self.strides[2]];
+                                let val_b = rhs.data.as_slice()[b_offset + l * rhs.strides[1] + c * rhs.strides[2]];
+                                sum += val_a * val_b;
+                            }
+                            out_matrix[r * n + c] = sum;
                         }
                     }
                 });
@@ -198,6 +207,8 @@ where
         Ok(out)
     }
 
+    /// Transpose arbitrary dimensions.
+    /// Only efficient for contiguous tensors.
     pub fn transpose_axes(&self, ax1: usize, ax2: usize) -> Result<Self> {
         if ax1 >= RANK || ax2 >= RANK {
             return Err(TensorError::IndexOutOfBounds { index: vec![ax1, ax2], shape: self.shape.to_vec() });
@@ -209,26 +220,62 @@ where
         let mut new_shape = self.shape;
         new_shape.swap(ax1, ax2);
 
+        // Compute new strides based on old strides
+        // But since we own data, we can't just change strides without permuting data if we want it contiguous.
+        // My Tensor struct enforces contiguous storage (Vec<T>).
+        // So we must physically move data.
+
         let mut out = Tensor::zeros(new_shape);
 
+        // Generic permute is hard. Implementing for specific cases used in Attention.
+        // Case: [B, S, H, D] -> [B, H, S, D] (swap 1 and 2) where RANK=4.
+
         if RANK == 4 && ((ax1 == 1 && ax2 == 2) || (ax1 == 2 && ax2 == 1)) {
-             let [_, _, _, d] = self.shape[0..4].try_into().unwrap(); // only use d if needed
+             let [b, s, h, d] = self.shape[0..4].try_into().unwrap();
+             // Input: B, S, H, D. Output: B, H, S, D.
+             // We want to write to [b, h, s, d].
+             // Iterate output
              let out_s = out.strides;
              let in_s = self.strides;
+
+             // We can use a generic loop with recursion or specific nested loops.
+             // Nested loops for 4D.
+             // Parallelize on B.
+
+             // Check if ax1/ax2 match expectation.
+             // The shape in `self` is [B, S, H, D] (if coming from reshape).
+             // If we swap 1 and 2, we get [B, H, S, D].
+
+             // But let's use the strides to be generic for 4D.
 
              let out_ptr = out.data.as_mut_slice();
              let in_ptr = self.data.as_slice();
 
+             // Parallelize outer dim
              out_ptr.par_chunks_mut(out_s[0]).enumerate().for_each(|(i, batch_chunk)| {
-                 let new_dim1 = new_shape[1];
-                 let new_dim2 = new_shape[2];
-                 let new_dim3 = new_shape[3];
+                 // i is batch index
+                 // batch_chunk is [H, S, D] size flattened
+                 // We need to iterate over H, S, D
+                 let new_dim1 = new_shape[1]; // H
+                 let new_dim2 = new_shape[2]; // S
+                 let new_dim3 = new_shape[3]; // D
 
                  for j in 0..new_dim1 {
                      for k in 0..new_dim2 {
                          for l in 0..new_dim3 {
+                             // Output index: i, j, k, l (linear: i*s0 + j*s1 + k*s2 + l*s3)
+                             // This chunk corresponds to `i`. so offset is j*out_s[1] + ...
                              let out_idx = j * out_s[1] + k * out_s[2] + l * out_s[3];
+
+                             // Input index: i, k, j, l (swapped j and k compared to output dims mapping)
+                             // Wait, we swapped axes.
+                             // Input indices:
+                             // idx[ax1] = out_idx[ax2]
+                             // idx[ax2] = out_idx[ax1]
+                             // indices: [i, k, j, l] if we swapped 1 and 2.
+                             // Input stride:
                              let in_idx = i * in_s[0] + k * in_s[1] + j * in_s[2] + l * in_s[3];
+
                              batch_chunk[out_idx] = in_ptr[in_idx];
                          }
                      }
