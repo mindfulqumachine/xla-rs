@@ -1,6 +1,7 @@
 use super::{Tensor, TensorElem, TensorError, Device, Cpu, Result};
 use rayon::prelude::*;
 use std::ops::{Add, Mul, Sub, Div};
+use matrixmultiply;
 
 // Simple macro to implement arithmetic traits
 macro_rules! impl_bin_op {
@@ -84,6 +85,13 @@ where
 
              let mut out = Tensor::zeros(out_shape);
 
+             // Optimization: Use TensorElem::gemm
+             if let Some(c) = T::gemm(m, k, n, self.data.as_slice(), rhs.data.as_slice()) {
+                 out.data.as_mut_slice().copy_from_slice(&c);
+                 return Ok(out);
+             }
+
+             // Fallback to naive parallel
              out.data.as_mut_slice()
                 .par_chunks_mut(n)
                 .enumerate()
@@ -120,6 +128,23 @@ where
                     let a_offset = batch_idx * m * k;
                     let b_offset = batch_idx * k * n;
 
+                    let a_slice = &self.data.as_slice()[a_offset..a_offset + m*k];
+                    let b_slice = &rhs.data.as_slice()[b_offset..b_offset + k*n];
+
+                    if let Some(c) = T::gemm(m, k, n, a_slice, b_slice) {
+                        out_matrix.copy_from_slice(&c);
+                    } else {
+                        // Fallback naive 2D
+                        for r in 0..m {
+                            for c in 0..n {
+                                let mut sum = T::zero();
+                                for l in 0..k {
+                                    let val_a = a_slice[r * k + l];
+                                    let val_b = b_slice[l * n + c];
+                                    sum += val_a * val_b;
+                                }
+                                out_matrix[r * n + c] = sum;
+                            }
                     for r in 0..m {
                         for c in 0..n {
                             let mut sum = T::zero();
