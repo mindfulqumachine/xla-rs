@@ -64,9 +64,7 @@ where
     /// - 2D x 2D: [M, K] x [K, N] -> [M, N]
     /// - 3D x 3D: [B, M, K] x [B, K, N] -> [B, M, N] (Batched Matmul)
     pub fn matmul(&self, rhs: &Self) -> Result<Self> {
-        if RANK == 2 {
-            self.matmul_impl(rhs)
-        } else if RANK == 3 {
+        if RANK == 2 || RANK == 3 {
             self.matmul_impl(rhs)
         } else {
             Err(TensorError::Unsupported(format!(
@@ -103,7 +101,7 @@ where
                 .par_chunks_mut(n)
                 .enumerate()
                 .for_each(|(i, out_row)| {
-                    for j in 0..n {
+                    for (j, out_elem) in out_row.iter_mut().enumerate().take(n) {
                         let mut sum = T::zero();
                         for l in 0..k {
                             let val_a =
@@ -112,7 +110,7 @@ where
                                 rhs.data.as_slice()[l * rhs.strides[0] + j * rhs.strides[1]];
                             sum += val_a * val_b;
                         }
-                        out_row[j] = sum;
+                        *out_elem = sum;
                     }
                 });
             Ok(out)
@@ -188,8 +186,8 @@ where
                 .par_chunks_mut(m)
                 .enumerate()
                 .for_each(|(c, col)| {
-                    for r in 0..m {
-                        col[r] = self.data.as_slice()[r * n + c];
+                    for (r, col_elem) in col.iter_mut().enumerate().take(m) {
+                        *col_elem = self.data.as_slice()[r * n + c];
                     }
                 });
         } else if RANK == 3 {

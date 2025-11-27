@@ -31,6 +31,6 @@ playground:
 	@echo "Starting local playground server on port 3001..."
 	python3 local_playground.py
 
-test-book:
+test-book: build
 	@echo "Running mdbook tests..."
 	mdbook test -L target/debug/deps book

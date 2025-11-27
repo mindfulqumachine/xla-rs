@@ -122,7 +122,8 @@ impl<T: TensorElem + Float, E: Expert<T>> MoELayer<T, E> {
             }
         }
 
-        let results: Vec<Option<(Vec<usize>, Tensor<T, 2, Cpu>, Vec<T>)>> = self
+        type ExpertResult<T> = Option<(Vec<usize>, Tensor<T, 2, Cpu>, Vec<T>)>;
+        let results: Vec<ExpertResult<T>> = self
             .experts
             .par_iter()
             .enumerate()
@@ -157,17 +158,15 @@ impl<T: TensorElem + Float, E: Expert<T>> MoELayer<T, E> {
 
         let out_data = final_output.data_mut();
 
-        for res in results {
-            if let Some((indices, output_tensor, weights)) = res {
-                let out_vals = output_tensor.data();
-                for (i, &token_idx) in indices.iter().enumerate() {
-                    let weight = weights[i];
-                    let out_offset = token_idx * h;
-                    let val_offset = i * h;
+        for (indices, output_tensor, weights) in results.into_iter().flatten() {
+            let out_vals = output_tensor.data();
+            for (i, &token_idx) in indices.iter().enumerate() {
+                let weight = weights[i];
+                let out_offset = token_idx * h;
+                let val_offset = i * h;
 
-                    for j in 0..h {
-                        out_data[out_offset + j] += out_vals[val_offset + j] * weight;
-                    }
+                for j in 0..h {
+                    out_data[out_offset + j] += out_vals[val_offset + j] * weight;
                 }
             }
         }

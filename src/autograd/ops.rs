@@ -175,6 +175,7 @@ struct MatMulNode<T: TensorElem, const RANK: usize> {
 }
 
 impl<T: TensorElem, const RANK: usize> GraphNode for MatMulNode<T, RANK> {
+    #[allow(clippy::collapsible_if)]
     fn backward(&self) {
         if let Some(grad) = self.out_grad.borrow().as_ref() {
             // LHS Gradient

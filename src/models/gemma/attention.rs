@@ -18,6 +18,7 @@ pub struct MultiHeadAttention<T: TensorElem> {
 }
 
 impl<T: TensorElem + Float> MultiHeadAttention<T> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         _dim: usize,
         num_heads: usize,

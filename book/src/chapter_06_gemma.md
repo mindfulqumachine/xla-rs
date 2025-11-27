@@ -44,7 +44,7 @@ The `GemmaModel` is simply a stack of `GemmaBlock`s followed by a final normaliz
 # extern crate xla_rs;
 # use xla_rs::tensor::TensorElem;
 # use xla_rs::models::gemma::GemmaBlock;
-# use xla_rs::nn::RMSNorm;
+# use xla_rs::nn::RMSNorm;  // For final layer norm
 
 pub struct GemmaModel<T: TensorElem> {
     pub layers: Vec<GemmaBlock<T>>,
