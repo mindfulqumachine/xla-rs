@@ -1,61 +1,38 @@
 # xla-rs
 
-**xla-rs** is a pure Rust implementation of tensor operations and neural network building blocks, designed for educational purposes.
+**xla-rs** is a pedagogical project to build a full LLM training and inference framework in pure Rust, from scratch.
 
-> [!NOTE]
-> Despite the name, this project currently runs on **CPU only** and does not integrate with the XLA compiler. It serves as a playground for understanding the internals of LLM inference (specifically Gemma) in Rust.
+> [!IMPORTANT]
+> **We are writing a book!**
+> The comprehensive documentation for this project is being written as a **Rustbook**.
+> You can find the source in the [`book/`](book/) directory.
+> To read it locally:
+> ```bash
+> mdbook serve book
+> ```
 
 ## Features
 
-- **Pure Rust**: No C++ dependencies, built on top of `Vec<T>` and `rayon` for parallelism.
-- **Tensor Library**: N-dimensional tensors with broadcasting, reshaping, and matrix multiplication.
-- **Neural Networks**: Implementation of `Linear`, `RMSNorm`, `SiLU`, and `MoE` layers.
-- **Gemma Architecture**: Full implementation of the Gemma transformer model.
+- **Pure Rust**: No C++ dependencies.
+- **Tensors**: N-dimensional arrays with broadcasting.
+- **Autograd**: Define-by-Run automatic differentiation.
+- **Neural Networks**: Linear, RMSNorm, RoPE, Attention, MoE.
+- **Gemma**: Full implementation of the Gemma architecture.
 
-## Usage
+## Roadmap
 
-### Creating Tensors
+We are building towards a production-grade system:
+- **Compiler**: Graph optimizations and fusion.
+- **Training**: Optimizers, Loss functions, Data loading.
+- **Serving**: KV Cache, Continuous Batching, Distributed Inference.
+- **Advanced**: Diffusion, Mamba, RLHF.
 
-```rust
-use xla_rs::tensor::Tensor;
+## Linking Code to Chapters
 
-fn main() {
-    // Create a 2x2 tensor
-    let data = vec![1.0, 2.0, 3.0, 4.0];
-    let tensor = Tensor::<f32, 2>::new(data, [2, 2]).unwrap();
-    
-    println!("Tensor: {:?}", tensor);
-}
+The codebase evolves with the book. To see the code as it corresponds to a specific chapter, use the git tags:
+
+```bash
+git checkout chapter-01
+# ...
+git checkout chapter-05
 ```
-
-### Running a Linear Layer
-
-```rust
-use xla_rs::tensor::Tensor;
-use xla_rs::nn::{Linear, Module};
-
-fn main() {
-    // Input: [Batch=1, InputDim=2]
-    let input = Tensor::<f32, 2>::new(vec![1.0, 2.0], [1, 2]).unwrap();
-    
-    // Weights: [OutputDim=2, InputDim=2]
-    let weights = Tensor::<f32, 2>::new(vec![0.5, 0.5, 0.5, 0.5], [2, 2]).unwrap();
-    
-    let linear = Linear::new(weights, None);
-    let output = linear.forward(&input).unwrap();
-    
-    println!("Output: {:?}", output);
-}
-```
-
-## Project Structure
-
-- `src/tensor`: Core tensor implementation (`Tensor`, `Device`, `Storage`).
-- `src/nn`: Neural network modules (`Linear`, `RMSNorm`, `MoE`).
-- `src/models`: Model architectures (`Gemma`).
-
-## Future Roadmap
-
-- [ ] Autograd support (Backpropagation)
-- [ ] Quantization (int8, fp8)
-- [ ] XLA / GPU integration
