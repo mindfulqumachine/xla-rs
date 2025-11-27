@@ -7,3 +7,8 @@ title = "xla-rs: Building an LLM Framework in Rust"
 [output.html]
 git-repository-url = "https://github.com/mindfulqumachine/xla-rs"
 edit-url-template = "https://github.com/mindfulqumachine/xla-rs/edit/main/book/{path}"
+additional-js = ["custom-playground.js"]
+
+[output.html.playground]
+runnable = true
+

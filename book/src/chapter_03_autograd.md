@@ -11,7 +11,12 @@ We implement a **Define-by-Run** (or Tape-based) autograd system, similar to PyT
 3.  **Backward Pass**: We traverse the graph in reverse topological order to compute gradients.
 
 ```rust
-pub struct Variable<T, const RANK: usize> {
+# extern crate xla_rs;
+# use std::rc::Rc;
+# use std::cell::RefCell;
+# use xla_rs::tensor::{Tensor, Cpu, TensorElem};
+# use xla_rs::autograd::GraphNode;
+pub struct Variable<T: TensorElem, const RANK: usize> {
     pub data: Tensor<T, RANK, Cpu>,
     pub grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
     pub node: Option<Rc<dyn GraphNode>>,
@@ -27,12 +32,13 @@ When you call `.backward()` on a scalar variable (the loss), we:
 
 ## Example
 
-```rust,ignore
+```rust
+# extern crate xla_rs;
 use xla_rs::tensor::Tensor;
 use xla_rs::autograd::Variable;
 
-let a = Variable::new(Tensor::from(2.0));
-let b = Variable::new(Tensor::from(3.0));
+let a = Variable::new(Tensor::new(vec![2.0], []).unwrap());
+let b = Variable::new(Tensor::new(vec![3.0], []).unwrap());
 
 // c = a * b
 let c = a.clone() * b.clone(); 

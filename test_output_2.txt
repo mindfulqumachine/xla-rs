@@ -1,0 +1,72 @@
+ INFO Testing chapter 'Introduction': "chapter_01_introduction.md"
+ INFO Testing chapter 'Tensors: The Bedrock': "chapter_02_tensors.md"
+ INFO Testing chapter 'Automatic Differentiation': "chapter_03_autograd.md"
+ERROR rustdoc returned an error:
+
+--- stdout
+
+running 2 tests
+test chapter_03_autograd.md - Chapter_3__Automatic_Differentiation::Example (line 35) ... FAILED
+test chapter_03_autograd.md - Chapter_3__Automatic_Differentiation::The_Tape (line 13) ... ok
+
+failures:
+
+---- chapter_03_autograd.md - Chapter_3__Automatic_Differentiation::Example (line 35) stdout ----
+error[E0308]: mismatched types
+   --> chapter_03_autograd.md:40:36
+    |
+  7 | let a = Variable::new(Tensor::from(2.0));
+    |                       ------------ ^^^ expected `Tensor<_, _>`, found floating-point number
+    |                       |
+    |                       arguments to this function are incorrect
+    |
+    = note: expected struct `Tensor<_, _>`
+                 found type `{float}`
+note: associated function defined here
+   --> /Users/blitz/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/convert/mod.rs:592:8
+    |
+592 |     fn from(value: T) -> Self;
+    |        ^^^^
+
+error[E0308]: mismatched types
+   --> chapter_03_autograd.md:41:36
+    |
+  8 | let b = Variable::new(Tensor::from(3.0));
+    |                       ------------ ^^^ expected `Tensor<_, _>`, found floating-point number
+    |                       |
+    |                       arguments to this function are incorrect
+    |
+    = note: expected struct `Tensor<_, _>`
+                 found type `{float}`
+note: associated function defined here
+   --> /Users/blitz/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/convert/mod.rs:592:8
+    |
+592 |     fn from(value: T) -> Self;
+    |        ^^^^
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0308`.
+Couldn't compile the test.
+
+failures:
+    chapter_03_autograd.md - Chapter_3__Automatic_Differentiation::Example (line 35)
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.50s
+
+
+--- stderr
+
+ INFO Testing chapter 'Building Blocks': "chapter_04_nn.md"
+ INFO Testing chapter 'The Mechanics of Attention': "chapter_05_attention.md"
+ INFO Testing chapter 'The Gemma Architecture': "chapter_06_gemma.md"
+ INFO Testing chapter 'Inference Optimizations': "chapter_07_inference_optimizations.md"
+ INFO Testing chapter 'Distributed Inference': "chapter_08_distributed_inference.md"
+ INFO Testing chapter 'The Training Loop': "chapter_09_training.md"
+ INFO Testing chapter 'Serving': "chapter_10_serving.md"
+ INFO Testing chapter 'State Space Models': "chapter_11_ssm.md"
+ INFO Testing chapter 'Generative Art: Diffusion': "chapter_12_diffusion.md"
+ INFO Testing chapter 'Communication Collectives': "chapter_13_collectives.md"
+ INFO Testing chapter 'Reinforcement Learning': "chapter_14_rl.md"
+ INFO Testing chapter 'Quantization': "chapter_15_quantization.md"
+ERROR One or more tests failed

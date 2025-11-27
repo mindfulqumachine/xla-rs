@@ -5,7 +5,9 @@ At the heart of every deep learning framework lies the **Tensor**. A tensor is s
 In `xla-rs`, our `Tensor` struct is defined as:
 
 ```rust
-pub struct Tensor<T, const RANK: usize, D: Device = Cpu> {
+# extern crate xla_rs;
+# use xla_rs::tensor::{Device, Cpu, TensorElem};
+pub struct Tensor<T: TensorElem, const RANK: usize, D: Device = Cpu> {
     shape: [usize; RANK],
     strides: [usize; RANK],
     data: D::Storage<T>,
@@ -45,6 +47,7 @@ Broadcasting allows us to perform operations on tensors of different shapes.
 Let's create some tensors!
 
 ```rust
+# extern crate xla_rs;
 use xla_rs::tensor::Tensor;
 
 let data = vec![1.0, 2.0, 3.0, 4.0];

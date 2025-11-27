@@ -33,7 +33,10 @@ Our `MultiHeadAttention` struct handles:
 3.  Repeating KV heads (for GQA).
 4.  Computing attention scores and output.
 
-```rust,ignore
+```rust
+# extern crate xla_rs;
+# use xla_rs::tensor::TensorElem;
+# use xla_rs::nn::Linear;
 pub struct MultiHeadAttention<T: TensorElem> {
     pub q_proj: Linear<T>,
     pub k_proj: Linear<T>,

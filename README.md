@@ -6,10 +6,22 @@
 > **We are writing a book!**
 > The comprehensive documentation for this project is being written as a **Rustbook**.
 > You can find the source in the [`book/`](book/) directory.
-> To read it locally:
+>
+> ### Quick Start
+>
+> We provide a `Makefile` for common tasks:
+>
 > ```bash
-> mdbook serve book
+> # Run the book server + local playground (http://localhost:3000)
+> make serve
+>
+> # Run book tests
+> make test-book
 > ```
+>
+> To fully enjoy the interactive examples:
+> 1.  Run `make serve`.
+> 2.  Navigate to `http://localhost:3000`.
 
 ## Features
 

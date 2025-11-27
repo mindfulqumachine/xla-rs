@@ -16,6 +16,12 @@ $$ x = x + \text{MLP}(\text{RMSNorm}(x)) $$
 Note that Gemma uses **Pre-Norm** with a twist: the residual connection is added *after* the block.
 
 ```rust
+# extern crate xla_rs;
+# use xla_rs::tensor::TensorElem;
+# use xla_rs::models::gemma::attention::MultiHeadAttention;
+# use xla_rs::models::gemma::MLP;
+# use xla_rs::nn::RMSNorm;
+
 pub struct GemmaBlock<T: TensorElem> {
     pub self_attn: MultiHeadAttention<T>,
     pub mlp: MLP<T>,
@@ -35,6 +41,11 @@ $$ \text{MLP}(x) = \text{Down}(\text{SiLU}(\text{Gate}(x)) \odot \text{Up}(x)) $
 The `GemmaModel` is simply a stack of `GemmaBlock`s followed by a final normalization.
 
 ```rust
+# extern crate xla_rs;
+# use xla_rs::tensor::TensorElem;
+# use xla_rs::models::gemma::GemmaBlock;
+# use xla_rs::nn::RMSNorm;
+
 pub struct GemmaModel<T: TensorElem> {
     pub layers: Vec<GemmaBlock<T>>,
     pub norm: RMSNorm<T>,
