@@ -16,5 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: peaceiris/actions-mdbook@v2
+      with:
+        mdbook-version: 'latest'
     - name: Builds, tests and runs mdbook tests
       run: make
