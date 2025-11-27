@@ -60,6 +60,11 @@ jobs:
         run: cargo install cargo-tarpaulin
       - name: Generate coverage
         run: cargo tarpaulin --out Xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: mindfulqumachine/xla-rs
 
   audit:
     name: Security Audit
