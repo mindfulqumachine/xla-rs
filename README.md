@@ -53,3 +53,17 @@ git checkout chapter-01
 # ...
 git checkout chapter-05
 ```
+
+## Appendix: How the Playground Works
+
+The interactive examples in the book are powered by a custom local playground setup. This allows you to run code snippets against your local build of `xla-rs`, rather than waiting for a remote server or relying on the standard Rust Playground which doesn't have access to our local crates.
+
+### Architecture
+
+1.  **`book/theme/custom-playground.js`**: This script intercepts the "Run" button clicks in the mdBook. Instead of sending the code to the official Rust Playground, it sends a POST request to `http://localhost:3001/evaluate.json`.
+2.  **`local_playground.py`**: This is a simple Python HTTP server running on port 3001. When it receives code:
+    *   It writes the code to a temporary file.
+    *   It compiles the code using `rustc`, linking against the `xla_rs` library in your local `target/debug/deps` directory.
+    *   It runs the compiled executable and returns the output (stdout/stderr) back to the browser.
+
+This setup ensures that the examples you run in the book are always in sync with your local code changes.
