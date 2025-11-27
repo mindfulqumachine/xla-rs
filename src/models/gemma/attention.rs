@@ -1,6 +1,6 @@
-use crate::tensor::{Tensor, TensorElem, Cpu, Result};
-use crate::nn::{Linear, Module};
 use super::rope::apply_rope;
+use crate::nn::Linear;
+use crate::tensor::{Cpu, Result, Tensor, TensorElem};
 use num_traits::Float;
 use rayon::prelude::*;
 
@@ -26,7 +26,7 @@ impl<T: TensorElem + Float> MultiHeadAttention<T> {
         q_proj: Linear<T>,
         k_proj: Linear<T>,
         v_proj: Linear<T>,
-        o_proj: Linear<T>
+        o_proj: Linear<T>,
     ) -> Self {
         Self {
             q_proj,
@@ -86,7 +86,7 @@ impl<T: TensorElem + Float> MultiHeadAttention<T> {
         scores = scores.map(|val| val * self.scaling);
 
         if let Some(m) = mask {
-             self.apply_mask(&mut scores, m)?;
+            self.apply_mask(&mut scores, m)?;
         }
 
         self.softmax_inplace(&mut scores)?;
@@ -110,7 +110,9 @@ impl<T: TensorElem + Float> MultiHeadAttention<T> {
         let [b, n_kv, s, d] = *x.shape();
         let n_rep = self.num_heads / n_kv;
 
-        if n_rep == 1 { return Ok(x.clone()); }
+        if n_rep == 1 {
+            return Ok(x.clone());
+        }
 
         let mut out = Tensor::zeros([b, self.num_heads, s, d]);
         let src = x.data();
@@ -122,15 +124,11 @@ impl<T: TensorElem + Float> MultiHeadAttention<T> {
                 let src_offset = (batch * n_kv + src_h) * s * d;
                 let dst_offset = (batch * self.num_heads + h) * s * d;
 
-                dst[dst_offset..dst_offset + s*d].copy_from_slice(&src[src_offset..src_offset + s*d]);
+                dst[dst_offset..dst_offset + s * d]
+                    .copy_from_slice(&src[src_offset..src_offset + s * d]);
             }
         }
         Ok(out)
-    }
-
-    fn permute_for_output(&self, x: &Tensor<T, 4, Cpu>) -> Result<Tensor<T, 4, Cpu>> {
-         // Replaced by transpose_axes(1, 2)
-         x.transpose_axes(1, 2)
     }
 
     fn softmax_inplace(&self, x: &mut Tensor<T, 3, Cpu>) -> Result<()> {
@@ -138,7 +136,9 @@ impl<T: TensorElem + Float> MultiHeadAttention<T> {
         x.data_mut().par_chunks_mut(s).for_each(|row| {
             let mut max_val = row[0];
             for &v in row.iter() {
-                if v > max_val { max_val = v; }
+                if v > max_val {
+                    max_val = v;
+                }
             }
 
             let mut sum_exp = T::zero();
@@ -161,17 +161,25 @@ impl<T: TensorElem + Float> MultiHeadAttention<T> {
         let [_, s, _] = *scores.shape();
         let [ms1, ms2] = *mask.shape();
 
-        if s != ms1 || s != ms2 { return Err(crate::tensor::TensorError::ShapeMismatch { expected: vec![s, s], got: vec![ms1, ms2] }); }
+        if s != ms1 || s != ms2 {
+            return Err(crate::tensor::TensorError::ShapeMismatch {
+                expected: vec![s, s],
+                got: vec![ms1, ms2],
+            });
+        }
 
         let mask_data = mask.data();
 
-        scores.data_mut().par_chunks_mut(s * s).for_each(|score_matrix| {
-            for (i, val) in score_matrix.iter_mut().enumerate() {
-                if mask_data[i] != T::one() {
-                    *val += mask_data[i];
+        scores
+            .data_mut()
+            .par_chunks_mut(s * s)
+            .for_each(|score_matrix| {
+                for (i, val) in score_matrix.iter_mut().enumerate() {
+                    if mask_data[i] != T::one() {
+                        *val += mask_data[i];
+                    }
                 }
-            }
-        });
+            });
         Ok(())
     }
 }

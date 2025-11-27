@@ -1,11 +1,11 @@
-use crate::tensor::{Tensor, TensorElem, Cpu, Result};
-use crate::nn::{Linear, RMSNorm, Activation, Module};
-use super::gemma::attention::MultiHeadAttention;
-use std::ops::Add;
+use crate::models::gemma::attention::MultiHeadAttention;
+use crate::nn::{Activation, Linear, RMSNorm};
+use crate::tensor::{Cpu, Result, Tensor, TensorElem};
 use num_traits::Float;
+use std::ops::Add;
 
-pub mod rope;
 pub mod attention;
+pub mod rope;
 
 #[derive(Debug, Clone)]
 pub struct GemmaConfig {
@@ -80,12 +80,14 @@ impl<T: TensorElem + Float> GemmaBlock<T> {
         x: &Tensor<T, 3, Cpu>,
         freqs_cos: &Tensor<T, 2, Cpu>,
         freqs_sin: &Tensor<T, 2, Cpu>,
-        mask: Option<&Tensor<T, 2, Cpu>>
+        mask: Option<&Tensor<T, 2, Cpu>>,
     ) -> Result<Tensor<T, 3, Cpu>> {
         let residual = x;
 
         let norm_x = self.input_layernorm.forward(x)?;
-        let attn_out = self.self_attn.forward(&norm_x, freqs_cos, freqs_sin, mask)?;
+        let attn_out = self
+            .self_attn
+            .forward(&norm_x, freqs_cos, freqs_sin, mask)?;
 
         let x = (residual.add(&attn_out))?;
 
@@ -99,6 +101,11 @@ impl<T: TensorElem + Float> GemmaBlock<T> {
     }
 }
 
+/// The full Gemma Model.
+///
+/// Consists of a stack of `GemmaBlock` layers followed by a final RMSNorm.
+/// Note: This struct represents the transformer body. The embedding layer and language model head
+/// are typically handled separately or wrapped in a `GemmaForCausalLM` struct (not yet implemented).
 #[derive(Debug)]
 pub struct GemmaModel<T: TensorElem> {
     pub layers: Vec<GemmaBlock<T>>,
@@ -111,7 +118,7 @@ impl<T: TensorElem + Float> GemmaModel<T> {
         x: &Tensor<T, 3, Cpu>,
         freqs_cos: &Tensor<T, 2, Cpu>,
         freqs_sin: &Tensor<T, 2, Cpu>,
-        mask: Option<&Tensor<T, 2, Cpu>>
+        mask: Option<&Tensor<T, 2, Cpu>>,
     ) -> Result<Tensor<T, 3, Cpu>> {
         let mut hidden = x.clone();
 

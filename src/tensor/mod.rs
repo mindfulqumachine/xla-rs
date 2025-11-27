@@ -1,18 +1,29 @@
-use num_traits::{Float, FromPrimitive, Num, NumAssign, ToPrimitive};
+use num_traits::{FromPrimitive, Num, NumAssign, ToPrimitive};
 use std::fmt::Debug;
 use thiserror::Error;
 
+pub mod device;
 pub mod ops;
+pub mod storage;
+
+pub use device::{Cpu, Device};
+pub use storage::Storage;
 
 /// Error type for Tensor operations.
 #[derive(Error, Debug)]
 pub enum TensorError {
     #[error("Shape mismatch: expected {expected:?}, got {got:?}")]
-    ShapeMismatch { expected: Vec<usize>, got: Vec<usize> },
+    ShapeMismatch {
+        expected: Vec<usize>,
+        got: Vec<usize>,
+    },
     #[error("Incompatible shapes for broadcasting: {0:?} and {1:?}")]
     BroadcastError(Vec<usize>, Vec<usize>),
     #[error("Index out of bounds: index {index:?} for shape {shape:?}")]
-    IndexOutOfBounds { index: Vec<usize>, shape: Vec<usize> },
+    IndexOutOfBounds {
+        index: Vec<usize>,
+        shape: Vec<usize>,
+    },
     #[error("Device mismatch")]
     DeviceMismatch,
     #[error("Unsupported operation: {0}")]
@@ -20,24 +31,6 @@ pub enum TensorError {
 }
 
 pub type Result<T> = std::result::Result<T, TensorError>;
-
-/// A trait representing the underlying storage device for a Tensor.
-pub trait Device: Clone + Debug + PartialEq + Send + Sync {
-    type Storage<T>: Storage<T> where T: TensorElem;
-    fn name(&self) -> &'static str;
-}
-
-/// A trait for the underlying data storage.
-pub trait Storage<T>: Clone + Debug + Send + Sync {
-    fn as_slice(&self) -> &[T];
-    fn as_mut_slice(&mut self) -> &mut [T];
-    fn len(&self) -> usize;
-    fn is_empty(&self) -> bool { self.len() == 0 }
-
-    fn copy_from_slice(&mut self, src: &[T]) where T: Copy {
-        self.as_mut_slice().copy_from_slice(src);
-    }
-}
 
 /// Trait bound for elements that can be stored in a Tensor.
 ///
@@ -47,31 +40,37 @@ pub trait Storage<T>: Clone + Debug + Send + Sync {
 /// - `Send + Sync`: Required for parallel execution via `rayon`.
 pub trait TensorElem:
     Num + NumAssign + Copy + Clone + Debug + Send + Sync + FromPrimitive + ToPrimitive + PartialOrd
-{}
-
-impl<T> TensorElem for T where
-    T: Num + NumAssign + Copy + Clone + Debug + Send + Sync + FromPrimitive + ToPrimitive + PartialOrd
-{}
-
-/// A CPU Device.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Cpu;
-
-impl Device for Cpu {
-    type Storage<T> = Vec<T> where T: TensorElem;
-    fn name(&self) -> &'static str { "CPU" }
+{
 }
 
-impl<T: TensorElem> Storage<T> for Vec<T> {
-    fn as_slice(&self) -> &[T] { self }
-    fn as_mut_slice(&mut self) -> &mut [T] { self }
-    fn len(&self) -> usize { self.len() }
+impl<T> TensorElem for T where
+    T: Num
+        + NumAssign
+        + Copy
+        + Clone
+        + Debug
+        + Send
+        + Sync
+        + FromPrimitive
+        + ToPrimitive
+        + PartialOrd
+{
 }
 
 /// The core Tensor struct.
+///
+/// Represents an N-dimensional array of elements.
+///
+/// # Generics
+///
+/// - `T`: The element type (must implement `TensorElem`).
+/// - `RANK`: The number of dimensions (const generic).
+/// - `D`: The device where data is stored (defaults to `Cpu`).
 #[derive(Clone)]
 pub struct Tensor<T, const RANK: usize, D: Device = Cpu>
-where T: TensorElem {
+where
+    T: TensorElem,
+{
     shape: [usize; RANK],
     strides: [usize; RANK],
     data: D::Storage<T>,
@@ -79,13 +78,25 @@ where T: TensorElem {
 }
 
 impl<T, const RANK: usize> Tensor<T, RANK, Cpu>
-where T: TensorElem {
+where
+    T: TensorElem,
+{
+    /// Creates a new Tensor from a vector of data and a shape.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A flat vector containing the tensor elements.
+    /// * `shape` - An array representing the dimensions of the tensor.
+    ///
+    /// # Errors
+    ///
+    /// Returns `TensorError::ShapeMismatch` if the length of `data` does not match the product of `shape`.
     pub fn new(data: Vec<T>, shape: [usize; RANK]) -> Result<Self> {
         let size: usize = shape.iter().product();
         if data.len() != size {
             return Err(TensorError::ShapeMismatch {
                 expected: vec![size],
-                got: vec![data.len()]
+                got: vec![data.len()],
             });
         }
 
@@ -122,14 +133,17 @@ where T: TensorElem {
         }
     }
 
-    pub fn reshape<const NEW_RANK: usize>(self, new_shape: [usize; NEW_RANK]) -> Result<Tensor<T, NEW_RANK, Cpu>> {
+    pub fn reshape<const NEW_RANK: usize>(
+        self,
+        new_shape: [usize; NEW_RANK],
+    ) -> Result<Tensor<T, NEW_RANK, Cpu>> {
         let current_size: usize = self.shape.iter().product();
         let new_size: usize = new_shape.iter().product();
 
         if current_size != new_size {
-             return Err(TensorError::ShapeMismatch {
+            return Err(TensorError::ShapeMismatch {
                 expected: vec![current_size],
-                got: vec![new_size]
+                got: vec![new_size],
             });
         }
 
@@ -138,7 +152,7 @@ where T: TensorElem {
             shape: new_shape,
             strides,
             data: self.data,
-            device: self.device
+            device: self.device,
         })
     }
 }
@@ -154,7 +168,9 @@ fn compute_strides<const RANK: usize>(shape: &[usize; RANK]) -> [usize; RANK] {
 }
 
 impl<T, const RANK: usize, D: Device> Tensor<T, RANK, D>
-where T: TensorElem {
+where
+    T: TensorElem,
+{
     pub fn shape(&self) -> &[usize; RANK] {
         &self.shape
     }
@@ -177,13 +193,15 @@ where T: TensorElem {
 }
 
 impl<T, const RANK: usize, D: Device> Debug for Tensor<T, RANK, D>
-where T: TensorElem {
+where
+    T: TensorElem,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Tensor")
-         .field("shape", &self.shape)
-         .field("device", &self.device.name())
-         .field("data_len", &self.data.len())
-         .finish()
+            .field("shape", &self.shape)
+            .field("device", &self.device.name())
+            .field("data_len", &self.data.len())
+            .finish()
     }
 }
 
@@ -240,7 +258,7 @@ mod tests {
         assert_eq!(d.data(), &[3.0, 8.0]);
 
         // Mismatch
-        let e = Tensor::<f32, 1>::new(vec![1.0], [1]).unwrap();
+        let _e = Tensor::<f32, 1>::new(vec![1.0], [1]).unwrap();
         let f = Tensor::<f32, 1>::new(vec![1.0, 2.0, 3.0], [3]).unwrap();
         let err = &a + &f;
         assert!(matches!(err, Err(TensorError::ShapeMismatch { .. })));
@@ -249,17 +267,10 @@ mod tests {
     #[test]
     fn test_matmul_2d() {
         // A: [2, 3], B: [3, 2] -> C: [2, 2]
-        let a_data = vec![
-            1.0, 2.0, 3.0,
-            4.0, 5.0, 6.0
-        ];
+        let a_data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let a = Tensor::<f32, 2>::new(a_data, [2, 3]).unwrap();
 
-        let b_data = vec![
-            7.0, 8.0,
-            9.0, 1.0,
-            2.0, 3.0
-        ];
+        let b_data = vec![7.0, 8.0, 9.0, 1.0, 2.0, 3.0];
         let b = Tensor::<f32, 2>::new(b_data, [3, 2]).unwrap();
 
         let c = a.matmul(&b).unwrap();
