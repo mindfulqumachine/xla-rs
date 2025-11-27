@@ -3,6 +3,7 @@
 [![Rust](https://github.com/mindfulqumachine/xla-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/mindfulqumachine/xla-rs/actions/workflows/rust.yml)
 [![codecov](https://codecov.io/gh/mindfulqumachine/xla-rs/branch/main/graph/badge.svg)](https://codecov.io/gh/mindfulqumachine/xla-rs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Security Audit](https://github.com/mindfulqumachine/xla-rs/actions/workflows/audit.yml/badge.svg)](https://github.com/mindfulqumachine/xla-rs/actions/workflows/audit.yml)
 
 **xla-rs** is a pedagogical project to build a full LLM training and inference framework in pure Rust, from scratch.
 
