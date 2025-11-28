@@ -1,8 +1,22 @@
+//! Tensor operations.
+//!
+//! This module implements various mathematical operations for Tensors, including
+//! element-wise arithmetic (Add, Sub, Mul, Div), matrix multiplication, and broadcasting.
+//! It uses `rayon` for parallel execution on the CPU.
+
 use super::{Cpu, Result, Tensor, TensorElem, TensorError};
 use rayon::prelude::*;
 use std::ops::{Add, Div, Mul, Sub};
 
-// Simple macro to implement arithmetic traits
+/// Implements a binary arithmetic operation trait (e.g., `Add`, `Sub`) for `&Tensor`.
+///
+/// This macro handles the boilerplate of checking shape compatibility, creating a new
+/// output tensor, and performing the element-wise operation in parallel using `rayon`.
+///
+/// # Arguments
+///
+/// * `$trait` - The trait to implement (e.g., `Add`).
+/// * `$method` - The method name of the trait (e.g., `add`).
 macro_rules! impl_bin_op {
     ($trait:ident, $method:ident) => {
         impl<T, const RANK: usize> $trait for &Tensor<T, RANK, Cpu>
@@ -63,110 +77,108 @@ where
     /// Supports:
     /// - 2D x 2D: [M, K] x [K, N] -> [M, N]
     /// - 3D x 3D: [B, M, K] x [B, K, N] -> [B, M, N] (Batched Matmul)
+    /// Matrix Multiplication.
+    ///
+    /// Performs matrix multiplication on the last two dimensions of the tensors.
+    /// If the rank is greater than 2, the leading dimensions are treated as batch dimensions.
+    /// This is known as **Batched Matrix Multiplication**.
+    ///
+    /// # Mathematical Definition
+    ///
+    /// For tensors of rank $N$, this operation corresponds to the Einstein summation:
+    /// `...mk,...kn->...mn`
+    ///
+    /// # Examples
+    ///
+    /// - **Rank 2 (Matrix x Matrix)**: `[M, K] x [K, N] -> [M, N]`
+    /// - **Rank 3 (Batch x Matrix x Matrix)**: `[B, M, K] x [B, K, N] -> [B, M, N]`
+    /// - **Rank 4**: `[B, H, M, K] x [B, H, K, N] -> [B, H, M, N]`
     pub fn matmul(&self, rhs: &Self) -> Result<Self> {
-        if RANK == 2 || RANK == 3 {
-            self.matmul_impl(rhs)
-        } else {
-            Err(TensorError::Unsupported(format!(
-                "Matmul not implemented for rank {}",
-                RANK
-            )))
-        }
+        // Compile-time check
+        const { assert!(RANK >= 2, "Matmul requires rank >= 2") };
+        self.matmul_impl(rhs)
     }
 
     fn matmul_impl(&self, rhs: &Self) -> Result<Self> {
-        if RANK == 2 {
-            let [m, k] = self.shape[0..2] else {
-                unreachable!()
-            };
-            let [k2, n] = rhs.shape[0..2] else {
-                unreachable!()
-            };
+        let m = self.shape[RANK - 2];
+        let k = self.shape[RANK - 1];
+        let k2 = rhs.shape[RANK - 2];
+        let n = rhs.shape[RANK - 1];
 
-            if k != k2 {
-                return Err(TensorError::ShapeMismatch {
-                    expected: vec![m, k],
-                    got: vec![k2, n],
-                });
-            }
-
-            let mut out_shape = [0; RANK];
-            out_shape[0] = m;
-            out_shape[1] = n;
-
-            let mut out = Tensor::zeros(out_shape);
-
-            out.data
-                .as_mut_slice()
-                .par_chunks_mut(n)
-                .enumerate()
-                .for_each(|(i, out_row)| {
-                    for (j, out_elem) in out_row.iter_mut().enumerate().take(n) {
-                        let mut sum = T::zero();
-                        for l in 0..k {
-                            let val_a =
-                                self.data.as_slice()[i * self.strides[0] + l * self.strides[1]];
-                            let val_b =
-                                rhs.data.as_slice()[l * rhs.strides[0] + j * rhs.strides[1]];
-                            sum += val_a * val_b;
-                        }
-                        *out_elem = sum;
-                    }
-                });
-            Ok(out)
-        } else if RANK == 3 {
-            let [b, m, k] = self.shape[0..3] else {
-                unreachable!()
-            };
-            let [b2, k2, n] = rhs.shape[0..3] else {
-                unreachable!()
-            };
-
-            if b != b2 || k != k2 {
-                return Err(TensorError::ShapeMismatch {
-                    expected: vec![b, m, k],
-                    got: vec![b2, k2, n],
-                });
-            }
-
-            let mut out_shape = [0; RANK];
-            out_shape[0] = b;
-            out_shape[1] = m;
-            out_shape[2] = n;
-
-            let mut out = Tensor::zeros(out_shape);
-
-            out.data
-                .as_mut_slice()
-                .par_chunks_mut(m * n)
-                .enumerate()
-                .for_each(|(batch_idx, out_matrix)| {
-                    let a_offset = batch_idx * m * k;
-                    let b_offset = batch_idx * k * n;
-
-                    for r in 0..m {
-                        for c in 0..n {
-                            let mut sum = T::zero();
-                            for l in 0..k {
-                                let val_a = self.data.as_slice()
-                                    [a_offset + r * self.strides[1] + l * self.strides[2]];
-                                let val_b = rhs.data.as_slice()
-                                    [b_offset + l * rhs.strides[1] + c * rhs.strides[2]];
-                                sum += val_a * val_b;
-                            }
-                            out_matrix[r * n + c] = sum;
-                        }
-                    }
-                });
-            Ok(out)
-        } else {
-            Err(TensorError::Unsupported(format!(
-                "Matmul not implemented for rank {}",
-                RANK
-            )))
+        if k != k2 {
+            return Err(TensorError::ShapeMismatch {
+                expected: vec![m, k],
+                got: vec![k2, n],
+            });
         }
+
+        // Check batch dimensions
+        if self.shape[..RANK - 2] != rhs.shape[..RANK - 2] {
+            return Err(TensorError::ShapeMismatch {
+                expected: self.shape.to_vec(),
+                got: rhs.shape.to_vec(),
+            });
+        }
+
+        let mut out_shape = self.shape;
+        out_shape[RANK - 2] = m;
+        out_shape[RANK - 1] = n;
+
+        let mut out = Tensor::zeros(out_shape);
+
+        // Optimization: Transpose rhs to allow sequential access (cache friendly)
+        // rhs_t shape: [..., N, K] (swapped last two dims)
+        let rhs_t = rhs.transpose()?;
+
+        // Parallelize over rows of the output matrices across all batches
+        // Output shape is [Batch..., M, N]
+        // We iterate over (Batch... * M) rows, each of size N
+
+        out.data
+            .as_mut_slice()
+            .par_chunks_mut(n)
+            .enumerate()
+            .for_each(|(global_row_idx, out_row)| {
+                let batch_idx = global_row_idx / m;
+                let row_in_matrix = global_row_idx % m;
+
+                // Calculate offsets for input tensors
+                // Assumes contiguous memory layout (which Tensor enforces)
+                let a_batch_offset = batch_idx * m * k;
+                // rhs_t has shape [..., N, K], so batch offset is batch_idx * N * K
+                let b_t_batch_offset = batch_idx * n * k;
+
+                let a_row_start = a_batch_offset + row_in_matrix * k;
+                let a_slice = &self.data.as_slice()[a_row_start..a_row_start + k];
+
+                for (col_in_matrix, out_elem) in out_row.iter_mut().enumerate() {
+                    // We want dot product of:
+                    // A row: `row_in_matrix`
+                    // B col: `col_in_matrix` -> which is rhs_t row `col_in_matrix`
+
+                    let b_t_row_start = b_t_batch_offset + col_in_matrix * k;
+                    let b_t_slice = &rhs_t.data.as_slice()[b_t_row_start..b_t_row_start + k];
+
+                    let mut sum = T::zero();
+                    // Vectorizable loop
+                    for (&val_a, &val_b) in a_slice.iter().zip(b_t_slice.iter()) {
+                        sum += val_a * val_b;
+                    }
+                    *out_elem = sum;
+                }
+            });
+        Ok(out)
     }
 
+    /// Transposes the tensor.
+    ///
+    /// Swaps the last two dimensions.
+    /// - For 2D tensors (matrices), this is a standard matrix transpose.
+    /// - For N-D tensors, it swaps the last two axes (e.g., [B, M, N] -> [B, N, M]).
+    ///
+    /// # Errors
+    ///
+    /// Returns `TensorError::Unsupported` if the tensor rank is less than 2.
     pub fn transpose(&self) -> Result<Self> {
         if RANK < 2 {
             return Err(TensorError::Unsupported(
@@ -179,57 +191,55 @@ where
 
         let mut out = Tensor::zeros(new_shape);
 
-        if RANK == 2 {
-            let [m, n] = self.shape[0..2].try_into().unwrap();
-            out.data
-                .as_mut_slice()
-                .par_chunks_mut(m)
-                .enumerate()
-                .for_each(|(c, col)| {
-                    for (r, col_elem) in col.iter_mut().enumerate().take(m) {
-                        *col_elem = self.data.as_slice()[r * n + c];
-                    }
-                });
-        } else if RANK == 3 {
-            let [_, m, n] = self.shape[0..3].try_into().unwrap();
-            out.data
-                .as_mut_slice()
-                .par_chunks_mut(n * m)
-                .enumerate()
-                .for_each(|(batch_idx, matrix)| {
-                    let offset = batch_idx * m * n;
-                    for c in 0..n {
-                        for r in 0..m {
-                            matrix[c * m + r] = self.data.as_slice()[offset + r * n + c];
-                        }
-                    }
-                });
-        } else if RANK == 4 {
-            let [_b, _h, m, n] = self.shape[0..4].try_into().unwrap();
-            out.data
-                .as_mut_slice()
-                .par_chunks_mut(n * m)
-                .enumerate()
-                .for_each(|(idx, matrix)| {
-                    let offset = idx * m * n;
-                    for c in 0..n {
-                        for r in 0..m {
-                            matrix[c * m + r] = self.data.as_slice()[offset + r * n + c];
-                        }
-                    }
-                });
-        } else {
-            return Err(TensorError::Unsupported(format!(
-                "Transpose not impl for rank {}",
-                RANK
-            )));
-        }
+        // Dimensions of the inner matrix
+        let m = self.shape[RANK - 2];
+        let n = self.shape[RANK - 1];
+
+        // Flatten batch dimensions
+        // The total number of matrices to transpose is the product of all dimensions except the last two.
+        // If RANK=2, batch_size=1.
+        // let batch_size: usize = self.shape[..RANK - 2].iter().product();
+        // Note: product of empty slice is 1, which is correct for Rank 2.
+
+        // We parallelize over the rows of the OUTPUT tensor.
+        // The output tensor has shape [Batch..., N, M].
+        // So we view it as `batch_size * N` rows, each of length `M`.
+        out.data
+            .as_mut_slice()
+            .par_chunks_mut(m)
+            .enumerate()
+            .for_each(|(i, out_row)| {
+                // `i` is the global row index in the flattened output [Batch * N, M]
+                let batch_idx = i / n;
+                let col_idx = i % n; // This corresponds to the column index in the input matrix
+
+                // Calculate the base offset for this batch in the input data
+                let input_batch_offset = batch_idx * m * n;
+
+                // Copy the column `col_idx` from the input matrix to `out_row`
+                for r in 0..m {
+                    // Input is [M, N]. We want element at (r, col_idx).
+                    // Index = input_batch_offset + r * N + col_idx
+                    out_row[r] = self.data.as_slice()[input_batch_offset + r * n + col_idx];
+                }
+            });
 
         Ok(out)
     }
 
-    /// Transpose arbitrary dimensions.
-    /// Only efficient for contiguous tensors.
+    /// Transposes two specific axes of the tensor.
+    ///
+    /// This operation creates a new tensor with the data physically permuted to match the new shape.
+    ///
+    /// # Arguments
+    ///
+    /// * `ax1` - The first axis to swap.
+    /// * `ax2` - The second axis to swap.
+    ///
+    /// # Errors
+    ///
+    /// Returns `TensorError::IndexOutOfBounds` if `ax1` or `ax2` are out of bounds.
+    /// Returns `TensorError::Unsupported` for complex permutations not yet optimized.
     pub fn transpose_axes(&self, ax1: usize, ax2: usize) -> Result<Self> {
         if ax1 >= RANK || ax2 >= RANK {
             return Err(TensorError::IndexOutOfBounds {
@@ -315,5 +325,231 @@ where
                 RANK, ax1, ax2
             )))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_arithmetic() {
+        let a = Tensor::<f32, 1>::new(vec![1.0, 2.0], [2]).unwrap();
+        let b = Tensor::<f32, 1>::new(vec![3.0, 4.0], [2]).unwrap();
+
+        // Add
+        let c = (&a + &b).unwrap();
+        assert_eq!(c.data(), &[4.0, 6.0]);
+
+        // Sub
+        let c = (&a - &b).unwrap();
+        assert_eq!(c.data(), &[-2.0, -2.0]);
+
+        // Mul
+        let d = (&a * &b).unwrap();
+        assert_eq!(d.data(), &[3.0, 8.0]);
+
+        // Div
+        let d = (&a / &b).unwrap();
+        assert_eq!(d.data(), &[1.0 / 3.0, 2.0 / 4.0]);
+
+        // Mismatch
+        let _e = Tensor::<f32, 1>::new(vec![1.0], [1]).unwrap();
+        let f = Tensor::<f32, 1>::new(vec![1.0, 2.0, 3.0], [3]).unwrap();
+        let err = &a + &f;
+        assert!(matches!(err, Err(TensorError::ShapeMismatch { .. })));
+    }
+
+    #[test]
+    fn test_map() {
+        let a = Tensor::<f32, 1>::new(vec![1.0, 2.0, 3.0], [3]).unwrap();
+        let b = a.map(|x| x * 2.0);
+        assert_eq!(b.data(), &[2.0, 4.0, 6.0]);
+    }
+
+    #[test]
+    fn test_matmul_2d() {
+        // A: [2, 3], B: [3, 2] -> C: [2, 2]
+        let a_data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let a = Tensor::<f32, 2>::new(a_data, [2, 3]).unwrap();
+
+        let b_data = vec![7.0, 8.0, 9.0, 1.0, 2.0, 3.0];
+        let b = Tensor::<f32, 2>::new(b_data, [3, 2]).unwrap();
+
+        let c = a.matmul(&b).unwrap();
+        assert_eq!(c.shape(), &[2, 2]);
+
+        // Row 0: 1*7 + 2*9 + 3*2 = 7 + 18 + 6 = 31
+        // Row 0, Col 1: 1*8 + 2*1 + 3*3 = 8 + 2 + 9 = 19
+        // Row 1: 4*7 + 5*9 + 6*2 = 28 + 45 + 12 = 85
+        // Row 1, Col 1: 4*8 + 5*1 + 6*3 = 32 + 5 + 18 = 55
+        assert_eq!(c.data(), &[31.0, 19.0, 85.0, 55.0]);
+    }
+
+    #[test]
+    fn test_matmul_3d() {
+        // Batched Matmul: [B, M, K] x [B, K, N] -> [B, M, N]
+        // B=2, M=2, K=2, N=2
+        // Batch 1: Identity * Identity = Identity
+        // Batch 2: 2*Identity * 3*Identity = 6*Identity
+
+        let batch1_a = vec![1.0, 0.0, 0.0, 1.0]; // Identity
+        let batch2_a = vec![2.0, 0.0, 0.0, 2.0]; // 2*Identity
+        let mut a_data = batch1_a;
+        a_data.extend(batch2_a);
+        let a = Tensor::<f32, 3>::new(a_data, [2, 2, 2]).unwrap();
+
+        let batch1_b = vec![1.0, 0.0, 0.0, 1.0]; // Identity
+        let batch2_b = vec![3.0, 0.0, 0.0, 3.0]; // 3*Identity
+        let mut b_data = batch1_b;
+        b_data.extend(batch2_b);
+        let b = Tensor::<f32, 3>::new(b_data, [2, 2, 2]).unwrap();
+
+        let c = a.matmul(&b).unwrap();
+        assert_eq!(c.shape(), &[2, 2, 2]);
+
+        let expected_batch1 = vec![1.0, 0.0, 0.0, 1.0];
+        let expected_batch2 = vec![6.0, 0.0, 0.0, 6.0];
+        let mut expected = expected_batch1;
+        expected.extend(expected_batch2);
+
+        assert_eq!(c.data(), &expected[..]);
+    }
+
+    #[test]
+    fn test_matmul_broadcast_error() {
+        let a = Tensor::<f32, 2>::zeros([2, 3]);
+        let b = Tensor::<f32, 2>::zeros([4, 2]); // K mismatch (3 vs 4)
+
+        let err = a.matmul(&b);
+        assert!(matches!(err, Err(TensorError::ShapeMismatch { .. })));
+    }
+
+    #[test]
+    fn test_transpose() {
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let t = Tensor::<f32, 2>::new(data, [2, 3]).unwrap();
+        // [ 1 2 3 ]
+        // [ 4 5 6 ]
+
+        let t_t = t.transpose().unwrap();
+        assert_eq!(t_t.shape(), &[3, 2]);
+        // [ 1 4 ]
+        // [ 2 5 ]
+        // [ 3 6 ]
+        assert_eq!(t_t.data(), &[1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
+    }
+
+    #[test]
+    fn test_transpose_axes() {
+        // Rank 4 tensor [B, S, H, D] -> [B, H, S, D]
+        // Shape: [1, 2, 2, 2] -> [1, 2, 2, 2] for simplicity but distinct values
+        let data: Vec<f32> = (0..8).map(|i| i as f32).collect();
+
+        let t = Tensor::<f32, 4>::new(data, [1, 2, 2, 2]).unwrap();
+
+        let permuted = t.transpose_axes(1, 2).unwrap();
+        assert_eq!(permuted.shape(), &[1, 2, 2, 2]); // H, S swapped but sizes same
+
+        assert_eq!(permuted.data(), &[0.0, 1.0, 4.0, 5.0, 2.0, 3.0, 6.0, 7.0]);
+    }
+
+    #[test]
+    fn test_matmul_4d() {
+        // [B, S, M, K] x [B, S, K, N] -> [B, S, M, N]
+        // Shape: [1, 2, 2, 2] x [1, 2, 2, 2] -> [1, 2, 2, 2]
+        // Batch 1, Seq 1: Identity * Identity = Identity
+        // Batch 1, Seq 2: 2*Identity * 3*Identity = 6*Identity
+
+        let s1_a = vec![1.0, 0.0, 0.0, 1.0];
+        let s2_a = vec![2.0, 0.0, 0.0, 2.0];
+        let mut a_data = s1_a;
+        a_data.extend(s2_a);
+        let a = Tensor::<f32, 4>::new(a_data, [1, 2, 2, 2]).unwrap();
+
+        let s1_b = vec![1.0, 0.0, 0.0, 1.0];
+        let s2_b = vec![3.0, 0.0, 0.0, 3.0];
+        let mut b_data = s1_b;
+        b_data.extend(s2_b);
+        let b = Tensor::<f32, 4>::new(b_data, [1, 2, 2, 2]).unwrap();
+
+        let c = a.matmul(&b).unwrap();
+        assert_eq!(c.shape(), &[1, 2, 2, 2]);
+
+        let expected_s1 = vec![1.0, 0.0, 0.0, 1.0];
+        let expected_s2 = vec![6.0, 0.0, 0.0, 6.0];
+        let mut expected = expected_s1;
+        expected.extend(expected_s2);
+
+        assert_eq!(c.data(), &expected[..]);
+    }
+
+    #[test]
+    fn test_matmul_10d() {
+        // 10D Tensor
+        // Shape: [1, ..., 1, 2, 2] (8 ones, then 2, 2)
+        let shape = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2];
+        let data = vec![1.0, 2.0, 3.0, 4.0]; // [1 2; 3 4]
+        let a = Tensor::<f32, 10>::new(data.clone(), shape).unwrap();
+        let b = Tensor::<f32, 10>::new(data, shape).unwrap();
+
+        let c = a.matmul(&b).unwrap();
+        assert_eq!(c.shape(), &shape);
+
+        // [1 2; 3 4] * [1 2; 3 4] = [7 10; 15 22]
+        assert_eq!(c.data(), &[7.0, 10.0, 15.0, 22.0]);
+    }
+
+    #[test]
+    fn test_transpose_4d() {
+        // [B, S, M, N] -> [B, S, N, M]
+        // [1, 2, 2, 3] -> [1, 2, 3, 2]
+        let data: Vec<f32> = (0..12).map(|i| i as f32).collect();
+        let t = Tensor::<f32, 4>::new(data, [1, 2, 2, 3]).unwrap();
+
+        let t_t = t.transpose().unwrap();
+        assert_eq!(t_t.shape(), &[1, 2, 3, 2]);
+
+        // First matrix (0..6):
+        // [0 1 2]
+        // [3 4 5]
+        // Transpose:
+        // [0 3]
+        // [1 4]
+        // [2 5]
+        // -> 0, 3, 1, 4, 2, 5
+
+        // Second matrix (6..12):
+        // [6 7 8]
+        // [9 10 11]
+        // Transpose:
+        // [6 9]
+        // [7 10]
+        // [8 11]
+        // -> 6, 9, 7, 10, 8, 11
+
+        let expected = vec![0.0, 3.0, 1.0, 4.0, 2.0, 5.0, 6.0, 9.0, 7.0, 10.0, 8.0, 11.0];
+        assert_eq!(t_t.data(), &expected[..]);
+    }
+
+    #[test]
+    fn test_transpose_10d() {
+        // 10D Tensor
+        // Shape: [1, ..., 1, 2, 3]
+        let shape = [1, 1, 1, 1, 1, 1, 1, 1, 2, 3];
+        let data: Vec<f32> = (0..6).map(|i| i as f32).collect();
+        let t = Tensor::<f32, 10>::new(data, shape).unwrap();
+
+        let t_t = t.transpose().unwrap();
+        let expected_shape = [1, 1, 1, 1, 1, 1, 1, 1, 3, 2];
+        assert_eq!(t_t.shape(), &expected_shape);
+
+        // [0 1 2]
+        // [3 4 5]
+        // ->
+        // [0 3]
+        // [1 4]
+        // [2 5]
+        assert_eq!(t_t.data(), &[0.0, 3.0, 1.0, 4.0, 2.0, 5.0]);
     }
 }

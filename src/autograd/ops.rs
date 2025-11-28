@@ -6,6 +6,7 @@ use std::ops::{Add, Mul};
 use std::rc::Rc;
 
 // --- Add Node ---
+/// A node representing element-wise addition in the computation graph.
 #[derive(Debug)]
 struct AddNode<T: TensorElem, const RANK: usize> {
     lhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
@@ -50,6 +51,9 @@ impl<T: TensorElem, const RANK: usize> GraphNode for AddNode<T, RANK> {
 impl<T: TensorElem + 'static, const RANK: usize> Add for Variable<T, RANK> {
     type Output = Variable<T, RANK>;
 
+    /// Adds two variables element-wise.
+    ///
+    /// This operation creates a new node in the computation graph.
     fn add(self, rhs: Self) -> Self::Output {
         let data = (&self.data + &rhs.data).unwrap();
 
@@ -87,6 +91,7 @@ impl<T: TensorElem + 'static, const RANK: usize> Add for Variable<T, RANK> {
 }
 
 // --- Mul Node ---
+/// A node representing element-wise multiplication in the computation graph.
 #[derive(Debug)]
 struct MulNode<T: TensorElem, const RANK: usize> {
     lhs_data: Tensor<T, RANK, Cpu>,
@@ -133,6 +138,9 @@ impl<T: TensorElem, const RANK: usize> GraphNode for MulNode<T, RANK> {
 impl<T: TensorElem + 'static, const RANK: usize> Mul for Variable<T, RANK> {
     type Output = Variable<T, RANK>;
 
+    /// Multiplies two variables element-wise.
+    ///
+    /// This operation creates a new node in the computation graph.
     fn mul(self, rhs: Self) -> Self::Output {
         let data = (&self.data * &rhs.data).unwrap();
 
@@ -164,6 +172,7 @@ impl<T: TensorElem + 'static, const RANK: usize> Mul for Variable<T, RANK> {
 }
 
 // --- MatMul Node ---
+/// A node representing matrix multiplication in the computation graph.
 #[derive(Debug)]
 struct MatMulNode<T: TensorElem, const RANK: usize> {
     lhs_data: Tensor<T, RANK, Cpu>,
@@ -214,6 +223,9 @@ impl<T: TensorElem, const RANK: usize> GraphNode for MatMulNode<T, RANK> {
 }
 
 impl<T: TensorElem + 'static, const RANK: usize> Variable<T, RANK> {
+    /// Performs matrix multiplication between two variables.
+    ///
+    /// This operation creates a new node in the computation graph.
     pub fn matmul(&self, rhs: &Self) -> crate::tensor::Result<Self> {
         let data = self.data.matmul(&rhs.data)?;
 
@@ -241,5 +253,57 @@ impl<T: TensorElem + 'static, const RANK: usize> Variable<T, RANK> {
             grad: out_grad,
             node: Some(node),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_backward() {
+        let a = Variable::new(Tensor::new(vec![2.0], []).unwrap());
+        let b = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+        let c = a.clone() + b.clone();
+
+        c.backward();
+
+        assert_eq!(a.grad.borrow().as_ref().unwrap().data()[0], 1.0);
+        assert_eq!(b.grad.borrow().as_ref().unwrap().data()[0], 1.0);
+    }
+
+    #[test]
+    fn test_mul_backward() {
+        let a = Variable::new(Tensor::new(vec![2.0], []).unwrap());
+        let b = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+        let c = a.clone() * b.clone();
+
+        c.backward();
+
+        assert_eq!(a.grad.borrow().as_ref().unwrap().data()[0], 3.0);
+        assert_eq!(b.grad.borrow().as_ref().unwrap().data()[0], 2.0);
+    }
+
+    #[test]
+    fn test_chain_rule() {
+        // y = (a + b) * c
+        // a=2, b=3, c=4
+        // y = (2+3)*4 = 20
+        // dy/da = c = 4
+        // dy/db = c = 4
+        // dy/dc = a + b = 5
+
+        let a = Variable::new(Tensor::new(vec![2.0], []).unwrap());
+        let b = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+        let c = Variable::new(Tensor::new(vec![4.0], []).unwrap());
+
+        let sum = a.clone() + b.clone();
+        let y = sum * c.clone();
+
+        y.backward();
+
+        assert_eq!(a.grad.borrow().as_ref().unwrap().data()[0], 4.0);
+        assert_eq!(b.grad.borrow().as_ref().unwrap().data()[0], 4.0);
+        assert_eq!(c.grad.borrow().as_ref().unwrap().data()[0], 5.0);
     }
 }

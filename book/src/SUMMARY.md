@@ -27,3 +27,4 @@
 - [Communication Collectives](chapter_13_collectives.md)
 - [Reinforcement Learning](chapter_14_rl.md)
 - [Quantization](chapter_15_quantization.md)
+    

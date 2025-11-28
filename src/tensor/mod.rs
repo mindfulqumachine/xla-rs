@@ -1,3 +1,25 @@
+//! Core Tensor implementation.
+//!
+//! This module defines the `Tensor` struct, which is the central data structure in `xla-rs`.
+//! It supports N-dimensional arrays, automatic differentiation (via the `autograd` module),
+//! and various mathematical operations.
+//!
+//! # Key Components
+//!
+//! - [`Tensor`]: The main struct representing an N-dimensional array.
+//! - [`TensorError`]: Error type for tensor operations.
+//! - [`TensorElem`]: Trait bound for elements that can be stored in a tensor.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use xla_rs::tensor::Tensor;
+//!
+//! let data = vec![1.0, 2.0, 3.0, 4.0];
+//! let tensor = Tensor::<f32, 2>::new(data, [2, 2]).unwrap();
+//! assert_eq!(tensor.shape(), &[2, 2]);
+//! ```
+
 use num_traits::{FromPrimitive, Num, NumAssign, ToPrimitive};
 use std::fmt::Debug;
 use thiserror::Error;
@@ -109,6 +131,11 @@ where
         })
     }
 
+    /// Creates a new Tensor filled with zeros.
+    ///
+    /// # Arguments
+    ///
+    /// * `shape` - An array representing the dimensions of the tensor.
     pub fn zeros(shape: [usize; RANK]) -> Self {
         let size: usize = shape.iter().product();
         let data = vec![T::zero(); size];
@@ -121,6 +148,11 @@ where
         }
     }
 
+    /// Creates a new Tensor filled with ones.
+    ///
+    /// # Arguments
+    ///
+    /// * `shape` - An array representing the dimensions of the tensor.
     pub fn ones(shape: [usize; RANK]) -> Self {
         let size: usize = shape.iter().product();
         let data = vec![T::one(); size];
@@ -133,6 +165,18 @@ where
         }
     }
 
+    /// Reshapes the tensor to a new shape.
+    ///
+    /// The number of elements must remain the same.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_shape` - The target shape.
+    ///
+    /// # Errors
+    ///
+    /// Returns `TensorError::ShapeMismatch` if the total number of elements in `new_shape`
+    /// does not match the current size of the tensor.
     pub fn reshape<const NEW_RANK: usize>(
         self,
         new_shape: [usize; NEW_RANK],
@@ -157,6 +201,18 @@ where
     }
 }
 
+/// Computes the strides for a given shape.
+///
+/// Strides represent the number of elements to skip in memory to move to the next element
+/// along a specific dimension. This implementation assumes a row-major (C-style) memory layout.
+///
+/// # Arguments
+///
+/// * `shape` - The shape of the tensor.
+///
+/// # Returns
+///
+/// An array of strides corresponding to the input shape.
 fn compute_strides<const RANK: usize>(shape: &[usize; RANK]) -> [usize; RANK] {
     let mut strides = [0; RANK];
     let mut stride = 1;
@@ -171,22 +227,27 @@ impl<T, const RANK: usize, D: Device> Tensor<T, RANK, D>
 where
     T: TensorElem,
 {
+    /// Returns the shape of the tensor.
     pub fn shape(&self) -> &[usize; RANK] {
         &self.shape
     }
 
+    /// Returns the strides of the tensor.
     pub fn strides(&self) -> &[usize; RANK] {
         &self.strides
     }
 
+    /// Returns a reference to the underlying data as a slice.
     pub fn data(&self) -> &[T] {
         self.data.as_slice()
     }
 
+    /// Returns a mutable reference to the underlying data as a slice.
     pub fn data_mut(&mut self) -> &mut [T] {
         self.data.as_mut_slice()
     }
 
+    /// Returns the total number of elements in the tensor.
     pub fn size(&self) -> usize {
         self.shape.iter().product()
     }
@@ -319,5 +380,12 @@ mod tests {
         assert_eq!(permuted.shape(), &[1, 2, 2, 2]); // H, S swapped but sizes same
 
         assert_eq!(permuted.data(), &[0.0, 1.0, 4.0, 5.0, 2.0, 3.0, 6.0, 7.0]);
+    }
+
+    #[test]
+    fn test_macro() {
+        let t = tensor!([1.0, 2.0, 3.0, 4.0], [2, 2]);
+        assert_eq!(t.shape(), &[2, 2]);
+        assert_eq!(t.data(), &[1.0, 2.0, 3.0, 4.0]);
     }
 }
