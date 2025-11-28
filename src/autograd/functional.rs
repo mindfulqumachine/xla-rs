@@ -31,12 +31,14 @@ where
     }
 }
 
+type CpuTensor<T, const RANK: usize> = Tensor<T, RANK, Cpu>;
+
 /// Computes the value and gradient of a function `f` with respect to its input.
 ///
 /// Returns a function that takes a `Tensor` input and returns a tuple `(Value, Gradient)`.
 pub fn value_and_grad<F, T, const RANK: usize>(
     f: F,
-) -> impl Fn(Tensor<T, RANK, Cpu>) -> (Tensor<T, RANK, Cpu>, Tensor<T, RANK, Cpu>)
+) -> impl Fn(CpuTensor<T, RANK>) -> (CpuTensor<T, RANK>, CpuTensor<T, RANK>)
 where
     F: Fn(Variable<T, RANK>) -> Variable<T, RANK>,
     T: TensorElem + 'static,

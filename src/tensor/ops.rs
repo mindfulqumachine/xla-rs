@@ -77,7 +77,6 @@ where
     /// Supports:
     /// - 2D x 2D: [M, K] x [K, N] -> [M, N]
     /// - 3D x 3D: [B, M, K] x [B, K, N] -> [B, M, N] (Batched Matmul)
-    /// Matrix Multiplication.
     ///
     /// Performs matrix multiplication on the last two dimensions of the tensors.
     /// If the rank is greater than 2, the leading dimensions are treated as batch dimensions.
@@ -217,10 +216,10 @@ where
                 let input_batch_offset = batch_idx * m * n;
 
                 // Copy the column `col_idx` from the input matrix to `out_row`
-                for r in 0..m {
+                for (r, out_elem) in out_row.iter_mut().enumerate() {
                     // Input is [M, N]. We want element at (r, col_idx).
                     // Index = input_batch_offset + r * N + col_idx
-                    out_row[r] = self.data.as_slice()[input_batch_offset + r * n + col_idx];
+                    *out_elem = self.data.as_slice()[input_batch_offset + r * n + col_idx];
                 }
             });
 

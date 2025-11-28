@@ -1,7 +1,7 @@
 .PHONY: build test lint book serve playground test-book clean
 
 # Default target
-all: build test test-book
+all: build lint test test-book
 
 # Rust commands
 build:
@@ -32,5 +32,7 @@ playground:
 	python3 local_playground.py
 
 test-book: build
+	cargo clean -p xla_rs
+	cargo build
 	@echo "Running mdbook tests..."
 	mdbook test -L target/debug/deps book

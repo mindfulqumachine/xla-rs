@@ -187,7 +187,7 @@ fn takes_3d_tensor(t: Tensor<f32, 3>) {}
 
 let t = Tensor::<f32, 2>::zeros([2, 2]);
 // This won't compile! Expected Tensor<_, 3>, found Tensor<_, 2>
-// takes_3d_tensor(t); 
+takes_3d_tensor(t); 
 ```
 
 ### Matrix Multiplication and Broadcasting
