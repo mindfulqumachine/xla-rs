@@ -117,8 +117,8 @@ where
     /// Internal implementation of Matrix Multiplication.
     fn matmul_impl(&self, rhs: &Self) -> Result<Self> {
         let m = self.shape[RANK - 2];
-        let k = self.shape[RANK - 1];
-        let k2 = rhs.shape[RANK - 2];
+        let _k = self.shape[RANK - 1];
+        let _k2 = rhs.shape[RANK - 2];
         let n = rhs.shape[RANK - 1];
 
         // Check batch dimensions

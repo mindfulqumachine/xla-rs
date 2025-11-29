@@ -60,4 +60,11 @@ coverage:
 	fi
 	cargo tarpaulin --workspace --fail-under 98 --out Xml --out Html
 
-ci: build lint test test-book doc-test coverage
+spellcheck:
+	@if ! command -v typos >/dev/null 2>&1; then \
+		echo "typos not found. Installing..."; \
+		cargo install typos-cli; \
+	fi
+	typos
+
+ci: build lint test test-book doc-test coverage spellcheck
