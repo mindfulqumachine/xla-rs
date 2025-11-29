@@ -89,4 +89,30 @@ mod tests {
         assert_eq!(val.data()[0], 8.0); // 2^3
         assert_eq!(g.data()[0], 12.0); // 3 * 2^2
     }
+
+    #[test]
+    fn test_grad_constant() {
+        // f(x) = 5.0
+        // f'(x) = 0.0
+        let constant = |_x: Variable<f32, 0>| Variable::new(Tensor::new(vec![5.0], []).unwrap());
+        let grad_constant = grad(constant);
+
+        let x = Tensor::new(vec![2.0], []).unwrap();
+        let g = grad_constant(x);
+
+        assert_eq!(g.data()[0], 0.0);
+    }
+
+    #[test]
+    fn test_value_and_grad_constant() {
+        // f(x) = 5.0
+        let constant = |_x: Variable<f32, 0>| Variable::new(Tensor::new(vec![5.0], []).unwrap());
+        let vag_constant = value_and_grad(constant);
+
+        let x = Tensor::new(vec![2.0], []).unwrap();
+        let (val, g) = vag_constant(x);
+
+        assert_eq!(val.data()[0], 5.0);
+        assert_eq!(g.data()[0], 0.0);
+    }
 }

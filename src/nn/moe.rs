@@ -1,8 +1,70 @@
+//! # Mixture of Experts (MoE)
+//!
+//! This module implements a sparse Mixture of Experts (MoE) layer, a technique to scale model capacity
+//! without proportionally increasing computational cost.
+//!
+//! ## What is Mixture of Experts?
+//!
+//! In a standard dense model, every input token is processed by every parameter in the network.
+//! In an MoE model, the "FeedForward" block is replaced by a set of "Experts" (usually smaller FeedForward networks)
+//! and a "Router" (or Gate). For each token, the Router selects a small subset (Top-K) of experts to process it.
+//!
+//! $$ \text{Output} = \sum_{i \in \text{TopK}} w_i \cdot \text{Expert}_i(x) $$
+//!
+//! This allows the model to have a massive number of parameters (high capacity) while only using a fraction
+//! of them per token (low inference latency).
+//!
+//! ## Implementation Details
+//!
+//! This implementation provides:
+//! - **`TopKRouter`**: A learnable gating mechanism that projects inputs to expert logits and selects the top-k indices.
+//! - **`MoELayer`**: The container that holds the router and the list of experts.
+//! - **`Expert` Trait**: An abstraction for what constitutes an expert (typically an MLP).
+//!
+//! ### Routing Mechanism
+//!
+//! We use a standard Top-K routing mechanism:
+//! 1.  Compute logits: $H(x) = x \cdot W_{gate}$
+//! 2.  Select Top-K: Identify the $k$ experts with the highest logits.
+//! 3.  Normalize: Apply Softmax to the selected logits to get routing weights.
+//! 4.  Dispatch: Send tokens to their respective experts.
+//! 5.  Combine: Weighted sum of expert outputs.
+//!
+//! ## Trade-offs and Design Decisions
+//!
+//! ### 1. Explicit Loops vs. Scatter/Gather
+//! **Decision**: We use explicit iteration and grouping (bucketing) of tokens per expert rather than
+//! optimized scatter/gather tensor operations.
+//!
+//! **Why?**
+//! - **Simplicity**: `xla-rs` is designed for clarity and education. Implementing efficient sparse scatter/gather
+//!   kernels is complex and hardware-specific.
+//! - **CPU Focus**: On CPU, the overhead of grouping tokens is often negligible compared to the matrix multiplications
+//!   inside the experts. Explicit grouping allows us to use standard dense matrix multiplication for each expert,
+//!   which is well-optimized.
+//!
+//! ### 2. Dynamic Control Flow
+//! **Decision**: The routing logic dynamically constructs batches for each expert at runtime.
+//!
+//! **Why?**
+//! - This avoids padding and wasted computation associated with fixed-size expert buffers (common in TPU/GPU implementations).
+//! - It handles load imbalance naturally (though extreme imbalance can still hurt performance due to stragglers).
+//!
+//! ### 3. Generic Experts
+//! **Decision**: Experts are generic modules implementing the `Expert` trait.
+//!
+//! **Why?**
+//! - Allows experimenting with different expert architectures (e.g., different activation functions,
+//!   or even nested MoEs) without changing the routing logic.
+
 use crate::nn::{Linear, Module};
 use crate::tensor::{Cpu, Result, Tensor, TensorElem};
 use num_traits::Float;
 use rayon::prelude::*;
 
+/// Top-K Router for Mixture of Experts.
+///
+/// Routes inputs to the top-k experts based on gate logits.
 #[derive(Debug)]
 pub struct TopKRouter<T: TensorElem> {
     pub gate: Linear<T>,
@@ -11,6 +73,13 @@ pub struct TopKRouter<T: TensorElem> {
 }
 
 impl<T: TensorElem + Float> TopKRouter<T> {
+    /// Creates a new TopKRouter.
+    ///
+    /// # Arguments
+    ///
+    /// * `gate` - The linear layer used to compute routing logits.
+    /// * `num_experts` - Total number of experts.
+    /// * `k` - Number of experts to route to per token.
     pub fn new(gate: Linear<T>, num_experts: usize, k: usize) -> Self {
         Self {
             gate,
@@ -19,6 +88,13 @@ impl<T: TensorElem + Float> TopKRouter<T> {
         }
     }
 
+    /// Performs routing.
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing:
+    /// * `weights` - The routing weights for the top-k experts.
+    /// * `indices` - The indices of the top-k experts.
     pub fn forward(
         &self,
         x: &Tensor<T, 3, Cpu>,
@@ -70,6 +146,9 @@ impl<T: TensorElem + Float> TopKRouter<T> {
     }
 }
 
+/// Mixture of Experts Layer.
+///
+/// Consists of a router and a set of experts.
 #[derive(Debug)]
 pub struct MoELayer<T: TensorElem, E: Module<T>> {
     pub router: TopKRouter<T>,
@@ -77,6 +156,7 @@ pub struct MoELayer<T: TensorElem, E: Module<T>> {
 }
 
 impl<T: TensorElem + Float, E: Module<T>> MoELayer<T, E> {
+    /// Creates a new MoELayer.
     pub fn new(router: TopKRouter<T>, experts: Vec<E>) -> Self {
         Self { router, experts }
     }
@@ -96,11 +176,17 @@ impl<T: TensorElem + Float, E: Module<T>> MoELayer<T, E> {
     // Let's define `Expert` trait in this file for now.
 }
 
+/// Trait for Experts in MoE.
+///
+/// Experts must implement `Module` and provide a `forward` method accepting Rank 3 tensors.
 pub trait Expert<T: TensorElem>: Module<T> {
     fn forward(&self, x: &Tensor<T, 3, Cpu>) -> Result<Tensor<T, 3, Cpu>>;
 }
 
 impl<T: TensorElem + Float, E: Expert<T>> MoELayer<T, E> {
+    /// Performs the forward pass of the MoE layer.
+    ///
+    /// Routes inputs to experts and aggregates the results.
     pub fn forward(&self, x: &Tensor<T, 3, Cpu>) -> Result<Tensor<T, 3, Cpu>> {
         let [b, s, h] = *x.shape();
         let (weights, indices) = self.router.forward(x)?;
@@ -172,5 +258,85 @@ impl<T: TensorElem + Float, E: Expert<T>> MoELayer<T, E> {
         }
 
         Ok(final_output)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tensor::Tensor;
+
+    // Mock Expert
+    #[derive(Debug)]
+    struct MockExpert {
+        id: usize,
+    }
+
+    impl Module<f32> for MockExpert {}
+
+    impl Expert<f32> for MockExpert {
+        fn forward(&self, x: &Tensor<f32, 3, Cpu>) -> Result<Tensor<f32, 3, Cpu>> {
+            // Expert returns input * id
+            let scale = self.id as f32;
+            let out = x.map(|v| v * scale);
+            Ok(out)
+        }
+    }
+
+    #[test]
+    fn test_moe_forward() {
+        // 2 Experts, Top-1 Routing
+        // Input: [1, 2, 2] (Batch=1, Seq=2, Dim=2)
+        // Router Gate: Identity-like to force routing
+
+        // Input:
+        // [[1.0, 0.0],  -> Should route to Expert 0 if gate favors index 0
+        //  [0.0, 1.0]]  -> Should route to Expert 1 if gate favors index 1
+
+        let input_data = vec![1.0, 0.0, 0.0, 1.0];
+        let input = Tensor::<f32, 3, Cpu>::new(input_data, [1, 2, 2]).unwrap();
+
+        // Gate weights: Identity [2, 2]
+        // [1, 0]
+        // [0, 1]
+        let gate_w_data = vec![1.0, 0.0, 0.0, 1.0];
+        let gate_w = Tensor::<f32, 2, Cpu>::new(gate_w_data, [2, 2]).unwrap();
+        let gate = Linear::new(gate_w, None);
+
+        let router = TopKRouter::new(gate, 2, 1);
+
+        let experts = vec![
+            MockExpert { id: 10 }, // Expert 0 scales by 10
+            MockExpert { id: 20 }, // Expert 1 scales by 20
+        ];
+
+        let moe = MoELayer::new(router, experts);
+
+        let output = moe.forward(&input).unwrap();
+
+        // Token 0: [1, 0] -> Gate -> [1, 0] -> Top1 is Index 0 (Score 1.0).
+        // Softmax([1, 0]) -> [0.73, 0.27]. Top1 weight approx 0.73?
+        // Wait, TopKRouter implementation:
+        // pairs sorted. top_k = pairs[0..k].
+        // max_val = top_k[0].0
+        // sum_exp...
+        // If k=1, max_val = val. exp(val - max_val) = exp(0) = 1.
+        // sum_exp = 1.
+        // weight = 1/1 = 1.
+        // So weight is 1.0 for top-1.
+
+        // Token 0 routes to Expert 0 (id 10). Input [1, 0]. Output [10, 0]. Weight 1.
+        // Final Token 0: [10, 0].
+
+        // Token 1: [0, 1] -> Gate -> [0, 1] -> Top1 is Index 1 (Score 1.0).
+        // Weight 1.0.
+        // Token 1 routes to Expert 1 (id 20). Input [0, 1]. Output [0, 20]. Weight 1.
+        // Final Token 1: [0, 20].
+
+        let out_data = output.data();
+        assert!((out_data[0] - 10.0).abs() < 1e-4);
+        assert!((out_data[1] - 0.0).abs() < 1e-4);
+        assert!((out_data[2] - 0.0).abs() < 1e-4);
+        assert!((out_data[3] - 20.0).abs() < 1e-4);
     }
 }

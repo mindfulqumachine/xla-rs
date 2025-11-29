@@ -59,7 +59,23 @@ impl<T, const RANK: usize> Tensor<T, RANK, Cpu>
 where
     T: TensorElem,
 {
-    /// Applies a function element-wise.
+    /// Applies a function element-wise to the tensor.
+    ///
+    /// Creates a new tensor with the same shape, where each element is the result of applying
+    /// the closure `f` to the corresponding element in the input tensor.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A closure that takes an element of type `T` and returns a value of type `T`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use xla_rs::tensor::Tensor;
+    /// let t = Tensor::<f32, 1>::new(vec![1.0, 2.0, 3.0], [3]).unwrap();
+    /// let squared = t.map(|x| x * x);
+    /// assert_eq!(squared.data(), &[1.0, 4.0, 9.0]);
+    /// ```
     pub fn map<F>(&self, f: F) -> Self
     where
         F: Fn(T) -> T + Sync + Send,
@@ -98,18 +114,12 @@ where
         self.matmul_impl(rhs)
     }
 
+    /// Internal implementation of Matrix Multiplication.
     fn matmul_impl(&self, rhs: &Self) -> Result<Self> {
         let m = self.shape[RANK - 2];
         let k = self.shape[RANK - 1];
         let k2 = rhs.shape[RANK - 2];
         let n = rhs.shape[RANK - 1];
-
-        if k != k2 {
-            return Err(TensorError::ShapeMismatch {
-                expected: vec![m, k],
-                got: vec![k2, n],
-            });
-        }
 
         // Check batch dimensions
         if self.shape[..RANK - 2] != rhs.shape[..RANK - 2] {
@@ -123,50 +133,27 @@ where
         out_shape[RANK - 2] = m;
         out_shape[RANK - 1] = n;
 
-        let mut out = Tensor::zeros(out_shape);
+        // Delegate to the kernel
+        // This is where you would swap in a BLAS call or other accelerator
+        let out_data = xla_rs_kernels::cpu_matmul(
+            self.data.as_slice(),
+            rhs.data.as_slice(),
+            &self.shape,
+            &rhs.shape,
+        )
+        .map_err(|e| match e {
+            xla_rs_kernels::KernelError::ShapeMismatch { expected, got } => {
+                TensorError::ShapeMismatch { expected, got }
+            }
+        })?;
 
-        // Optimization: Transpose rhs to allow sequential access (cache friendly)
-        // rhs_t shape: [..., N, K] (swapped last two dims)
-        let rhs_t = rhs.transpose()?;
-
-        // Parallelize over rows of the output matrices across all batches
-        // Output shape is [Batch..., M, N]
-        // We iterate over (Batch... * M) rows, each of size N
-
-        out.data
-            .as_mut_slice()
-            .par_chunks_mut(n)
-            .enumerate()
-            .for_each(|(global_row_idx, out_row)| {
-                let batch_idx = global_row_idx / m;
-                let row_in_matrix = global_row_idx % m;
-
-                // Calculate offsets for input tensors
-                // Assumes contiguous memory layout (which Tensor enforces)
-                let a_batch_offset = batch_idx * m * k;
-                // rhs_t has shape [..., N, K], so batch offset is batch_idx * N * K
-                let b_t_batch_offset = batch_idx * n * k;
-
-                let a_row_start = a_batch_offset + row_in_matrix * k;
-                let a_slice = &self.data.as_slice()[a_row_start..a_row_start + k];
-
-                for (col_in_matrix, out_elem) in out_row.iter_mut().enumerate() {
-                    // We want dot product of:
-                    // A row: `row_in_matrix`
-                    // B col: `col_in_matrix` -> which is rhs_t row `col_in_matrix`
-
-                    let b_t_row_start = b_t_batch_offset + col_in_matrix * k;
-                    let b_t_slice = &rhs_t.data.as_slice()[b_t_row_start..b_t_row_start + k];
-
-                    let mut sum = T::zero();
-                    // Vectorizable loop
-                    for (&val_a, &val_b) in a_slice.iter().zip(b_t_slice.iter()) {
-                        sum += val_a * val_b;
-                    }
-                    *out_elem = sum;
-                }
-            });
-        Ok(out)
+        let strides = crate::tensor::compute_strides(&out_shape);
+        Ok(Tensor {
+            shape: out_shape,
+            strides,
+            data: out_data,
+            device: Cpu,
+        })
     }
 
     /// Transposes the tensor.
@@ -188,42 +175,22 @@ where
         let mut new_shape = self.shape;
         new_shape.swap(RANK - 1, RANK - 2);
 
-        let mut out = Tensor::zeros(new_shape);
-
-        // Dimensions of the inner matrix
-        let m = self.shape[RANK - 2];
-        let n = self.shape[RANK - 1];
-
-        // Flatten batch dimensions
-        // The total number of matrices to transpose is the product of all dimensions except the last two.
-        // If RANK=2, batch_size=1.
-        // let batch_size: usize = self.shape[..RANK - 2].iter().product();
-        // Note: product of empty slice is 1, which is correct for Rank 2.
-
-        // We parallelize over the rows of the OUTPUT tensor.
-        // The output tensor has shape [Batch..., N, M].
-        // So we view it as `batch_size * N` rows, each of length `M`.
-        out.data
-            .as_mut_slice()
-            .par_chunks_mut(m)
-            .enumerate()
-            .for_each(|(i, out_row)| {
-                // `i` is the global row index in the flattened output [Batch * N, M]
-                let batch_idx = i / n;
-                let col_idx = i % n; // This corresponds to the column index in the input matrix
-
-                // Calculate the base offset for this batch in the input data
-                let input_batch_offset = batch_idx * m * n;
-
-                // Copy the column `col_idx` from the input matrix to `out_row`
-                for (r, out_elem) in out_row.iter_mut().enumerate() {
-                    // Input is [M, N]. We want element at (r, col_idx).
-                    // Index = input_batch_offset + r * N + col_idx
-                    *out_elem = self.data.as_slice()[input_batch_offset + r * n + col_idx];
+        // Delegate to the kernel
+        let out_data = xla_rs_kernels::cpu_transpose(self.data.as_slice(), &self.shape).map_err(
+            |e| match e {
+                xla_rs_kernels::KernelError::ShapeMismatch { expected, got } => {
+                    TensorError::ShapeMismatch { expected, got }
                 }
-            });
+            },
+        )?;
 
-        Ok(out)
+        let strides = crate::tensor::compute_strides(&new_shape);
+        Ok(Tensor {
+            shape: new_shape,
+            strides,
+            data: out_data,
+            device: Cpu,
+        })
     }
 
     /// Transposes two specific axes of the tensor.
@@ -550,5 +517,42 @@ mod tests {
         // [1 4]
         // [2 5]
         assert_eq!(t_t.data(), &[0.0, 3.0, 1.0, 4.0, 2.0, 5.0]);
+    }
+
+    #[test]
+    fn test_transpose_error() {
+        let t = Tensor::<f32, 1>::new(vec![1.0, 2.0], [2]).unwrap();
+        let err = t.transpose();
+        assert!(matches!(err, Err(TensorError::Unsupported(_))));
+    }
+
+    #[test]
+    fn test_transpose_axes_error() {
+        let t = Tensor::<f32, 2>::zeros([2, 2]);
+        let err = t.transpose_axes(0, 2); // 2 is out of bounds
+        assert!(matches!(err, Err(TensorError::IndexOutOfBounds { .. })));
+    }
+
+    #[test]
+    fn test_transpose_axes_identity() {
+        let t = Tensor::<f32, 2>::zeros([2, 2]);
+        let t2 = t.transpose_axes(0, 0).unwrap();
+        assert_eq!(t.shape(), t2.shape());
+    }
+
+    #[test]
+    fn test_transpose_axes_unsupported() {
+        let t = Tensor::<f32, 3>::zeros([2, 2, 2]);
+        // 3D transpose axes not fully implemented in the simplified logic
+        let err = t.transpose_axes(0, 1);
+        assert!(matches!(err, Err(TensorError::Unsupported(_))));
+    }
+
+    #[test]
+    fn test_matmul_batch_mismatch() {
+        let a = Tensor::<f32, 3>::zeros([2, 2, 2]);
+        let b = Tensor::<f32, 3>::zeros([3, 2, 2]); // Batch size 3 vs 2
+        let err = a.matmul(&b);
+        assert!(matches!(err, Err(TensorError::ShapeMismatch { .. })));
     }
 }

@@ -129,4 +129,26 @@ mod tests {
         assert!(var.grad.borrow().is_some());
         assert_eq!(var.grad.borrow().as_ref().unwrap().data()[0], 1.0);
     }
+
+    #[test]
+    fn test_variable_with_node() {
+        let data = Tensor::new(vec![10.0], []).unwrap();
+
+        // Create a mock node (using a simple struct that implements GraphNode)
+        #[derive(Debug)]
+        struct MockNode;
+        impl GraphNode for MockNode {
+            fn backward(&self) {}
+            fn parents(&self) -> Vec<Rc<dyn GraphNode>> {
+                vec![]
+            }
+        }
+
+        let node = Rc::new(MockNode);
+        let var = Variable::with_node(data.clone(), node.clone());
+
+        assert_eq!(var.data.data(), data.data());
+        assert!(var.node.is_some());
+        assert!(var.grad.borrow().is_none());
+    }
 }

@@ -10,6 +10,20 @@
 //! - [`TensorError`]: Error type for tensor operations.
 //! - [`TensorElem`]: Trait bound for elements that can be stored in a tensor.
 //!
+//! # ML Context
+//!
+//! Tensors are the fundamental data structure in deep learning. They generalize scalars (0D),
+//! vectors (1D), and matrices (2D) to N dimensions.
+//!
+//! - **0D**: Scalar (loss value).
+//! - **1D**: Vector (bias term, embedding).
+//! - **2D**: Matrix (weights, grayscale image).
+//! - **3D**: (RGB image, sequence of vectors).
+//! - **4D**: (Batch of RGB images).
+//!
+//! In `xla-rs`, tensors are strongly typed by element type `T` and rank `RANK`.
+//! This allows for some compile-time safety and optimization.
+//!
 //! # Examples
 //!
 //! ```rust
@@ -34,20 +48,25 @@ pub use storage::Storage;
 /// Error type for Tensor operations.
 #[derive(Error, Debug)]
 pub enum TensorError {
+    /// The shape of the data does not match the expected shape.
     #[error("Shape mismatch: expected {expected:?}, got {got:?}")]
     ShapeMismatch {
         expected: Vec<usize>,
         got: Vec<usize>,
     },
+    /// Broadcasting is not possible between the given shapes.
     #[error("Incompatible shapes for broadcasting: {0:?} and {1:?}")]
     BroadcastError(Vec<usize>, Vec<usize>),
+    /// An index is out of bounds for the given shape.
     #[error("Index out of bounds: index {index:?} for shape {shape:?}")]
     IndexOutOfBounds {
         index: Vec<usize>,
         shape: Vec<usize>,
     },
+    /// Operations between tensors on different devices are not allowed.
     #[error("Device mismatch")]
     DeviceMismatch,
+    /// The requested operation is not supported (e.g., for a specific rank or type).
     #[error("Unsupported operation: {0}")]
     Unsupported(String),
 }
@@ -88,6 +107,24 @@ impl<T> TensorElem for T where
 /// - `T`: The element type (must implement `TensorElem`).
 /// - `RANK`: The number of dimensions (const generic).
 /// - `D`: The device where data is stored (defaults to `Cpu`).
+/// # Design Philosophy: `const RANK` vs `const SHAPE`
+///
+/// The `Tensor` struct uses `const RANK: usize` rather than encoding the full shape in the type system
+/// (e.g., `Tensor<T, [32, 128]>`). This is a deliberate trade-off to balance **correctness** with **usability**.
+///
+/// **Why not `const SHAPE`?**
+/// - **Dynamic Batching:** Deep learning models often need to handle variable batch sizes (e.g., training with batch size 32,
+///   inference with batch size 1). Encoding shape in the type would require re-instantiating the model for every batch size.
+/// - **Complexity:** Operations like `reshape` or `matmul` would require complex type-level arithmetic, making compiler
+///   errors difficult to read and the API rigid.
+///
+/// **The Trade-off:**
+/// - **Pros:** We gain the flexibility to handle variable sequence lengths and batch sizes without recompilation.
+///   Function signatures remain readable (e.g., `fn forward(x: Tensor<f32, 2>)`).
+/// - **Cons:** Shape mismatches (e.g., multiplying `[32, 10]` by `[5, 20]`) are caught at runtime rather than compile-time.
+///
+/// This approach aligns with the industry standard for most deep learning frameworks (like PyTorch, TensorFlow, and many Rust crates),
+/// prioritizing the flexibility required for real-world model training and inference.
 #[derive(Clone)]
 pub struct Tensor<T, const RANK: usize, D: Device = Cpu>
 where
@@ -228,11 +265,16 @@ where
     T: TensorElem,
 {
     /// Returns the shape of the tensor.
+    ///
+    /// The shape is an array of length `RANK` representing the size of each dimension.
     pub fn shape(&self) -> &[usize; RANK] {
         &self.shape
     }
 
     /// Returns the strides of the tensor.
+    ///
+    /// Strides represent the number of elements to skip in memory to move to the next element
+    /// along a specific dimension.
     pub fn strides(&self) -> &[usize; RANK] {
         &self.strides
     }
@@ -243,11 +285,18 @@ where
     }
 
     /// Returns a mutable reference to the underlying data as a slice.
+    ///
+    /// # Warning
+    ///
+    /// Modifying the data directly can be dangerous if you violate invariants (though `Tensor`
+    /// doesn't have many invariants on the values themselves). Use with caution.
     pub fn data_mut(&mut self) -> &mut [T] {
         self.data.as_mut_slice()
     }
 
     /// Returns the total number of elements in the tensor.
+    ///
+    /// This is equal to the product of the dimensions in the shape.
     pub fn size(&self) -> usize {
         self.shape.iter().product()
     }
@@ -387,5 +436,80 @@ mod tests {
         let t = tensor!([1.0, 2.0, 3.0, 4.0], [2, 2]);
         assert_eq!(t.shape(), &[2, 2]);
         assert_eq!(t.data(), &[1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn test_tensor_accessors() {
+        let mut t = Tensor::<f32, 2>::zeros([2, 3]);
+        assert_eq!(t.size(), 6);
+        assert_eq!(t.strides(), &[3, 1]);
+
+        // Test data_mut
+        {
+            let data = t.data_mut();
+            data[0] = 1.0;
+        }
+        assert_eq!(t.data()[0], 1.0);
+    }
+
+    #[test]
+    fn test_compute_strides() {
+        let shape = [2, 3, 4];
+        let strides = compute_strides(&shape);
+        // Stride for dim 2 (last) is 1
+        // Stride for dim 1 is 4
+        // Stride for dim 0 is 3 * 4 = 12
+        assert_eq!(strides, [12, 4, 1]);
+    }
+
+    #[test]
+    fn test_tensor_error_display() {
+        let err = TensorError::ShapeMismatch {
+            expected: vec![2, 2],
+            got: vec![4],
+        };
+        assert_eq!(
+            format!("{}", err),
+            "Shape mismatch: expected [2, 2], got [4]"
+        );
+
+        let err = TensorError::BroadcastError(vec![2, 3], vec![2, 2]);
+        assert_eq!(
+            format!("{}", err),
+            "Incompatible shapes for broadcasting: [2, 3] and [2, 2]"
+        );
+
+        let err = TensorError::IndexOutOfBounds {
+            index: vec![3],
+            shape: vec![2],
+        };
+        assert_eq!(
+            format!("{}", err),
+            "Index out of bounds: index [3] for shape [2]"
+        );
+
+        let err = TensorError::DeviceMismatch;
+        assert_eq!(format!("{}", err), "Device mismatch");
+
+        let err = TensorError::Unsupported("foo".to_string());
+        assert_eq!(format!("{}", err), "Unsupported operation: foo");
+    }
+
+    #[test]
+    fn test_tensor_clone() {
+        let t = Tensor::<f32, 1>::new(vec![1.0, 2.0], [2]).unwrap();
+        let t2 = t.clone();
+        assert_eq!(t.data(), t2.data());
+        assert_eq!(t.shape(), t2.shape());
+    }
+
+    #[test]
+    fn test_tensor_debug() {
+        let t = Tensor::<f32, 1>::new(vec![1.0], [1]).unwrap();
+        let debug_str = format!("{:?}", t);
+        assert!(debug_str.contains("Tensor"));
+        assert!(debug_str.contains("shape"));
+        assert!(debug_str.contains("device"));
+        assert!(debug_str.contains("CPU"));
     }
 }

@@ -1,3 +1,8 @@
+//! Operations for the autograd system.
+//!
+//! This module defines the nodes in the computation graph for various operations
+//! (Add, Mul, MatMul) and implements the `backward` pass for each.
+
 use super::{GraphNode, Variable};
 use crate::tensor::{Cpu, Tensor, TensorElem};
 use std::cell::RefCell;
@@ -7,11 +12,17 @@ use std::rc::Rc;
 
 // --- Add Node ---
 /// A node representing element-wise addition in the computation graph.
+// --- Add Node ---
+/// A node representing element-wise addition in the computation graph.
 #[derive(Debug)]
 struct AddNode<T: TensorElem, const RANK: usize> {
+    /// Gradient of the left-hand side operand.
     lhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    /// Gradient of the right-hand side operand.
     rhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    /// Gradient of the output (received from the parent node).
     out_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    /// Parent nodes in the computation graph.
     parents: Vec<Rc<dyn GraphNode>>,
 }
 
@@ -92,13 +103,21 @@ impl<T: TensorElem + 'static, const RANK: usize> Add for Variable<T, RANK> {
 
 // --- Mul Node ---
 /// A node representing element-wise multiplication in the computation graph.
+// --- Mul Node ---
+/// A node representing element-wise multiplication in the computation graph.
 #[derive(Debug)]
 struct MulNode<T: TensorElem, const RANK: usize> {
+    /// Data of the left-hand side operand (needed for gradient calculation).
     lhs_data: Tensor<T, RANK, Cpu>,
+    /// Data of the right-hand side operand (needed for gradient calculation).
     rhs_data: Tensor<T, RANK, Cpu>,
+    /// Gradient of the left-hand side operand.
     lhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    /// Gradient of the right-hand side operand.
     rhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    /// Gradient of the output (received from the parent node).
     out_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    /// Parent nodes in the computation graph.
     parents: Vec<Rc<dyn GraphNode>>,
 }
 
@@ -173,13 +192,21 @@ impl<T: TensorElem + 'static, const RANK: usize> Mul for Variable<T, RANK> {
 
 // --- MatMul Node ---
 /// A node representing matrix multiplication in the computation graph.
+// --- MatMul Node ---
+/// A node representing matrix multiplication in the computation graph.
 #[derive(Debug)]
 struct MatMulNode<T: TensorElem, const RANK: usize> {
+    /// Data of the left-hand side operand.
     lhs_data: Tensor<T, RANK, Cpu>,
+    /// Data of the right-hand side operand.
     rhs_data: Tensor<T, RANK, Cpu>,
+    /// Gradient of the left-hand side operand.
     lhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    /// Gradient of the right-hand side operand.
     rhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    /// Gradient of the output.
     out_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    /// Parent nodes in the computation graph.
     parents: Vec<Rc<dyn GraphNode>>,
 }
 
@@ -190,28 +217,24 @@ impl<T: TensorElem, const RANK: usize> GraphNode for MatMulNode<T, RANK> {
             // LHS Gradient
             {
                 let mut lhs = self.lhs_grad.borrow_mut();
-                if let Ok(rhs_t) = self.rhs_data.transpose() {
-                    if let Ok(dl_da) = grad.matmul(&rhs_t) {
-                        if let Some(l) = lhs.as_mut() {
-                            *l = (l.add(&dl_da)).unwrap();
-                        } else {
-                            *lhs = Some(dl_da);
-                        }
-                    }
+                let rhs_t = self.rhs_data.transpose().unwrap();
+                let dl_da = grad.matmul(&rhs_t).unwrap();
+                if let Some(l) = lhs.as_mut() {
+                    *l = (l.add(&dl_da)).unwrap();
+                } else {
+                    *lhs = Some(dl_da);
                 }
             }
 
             // RHS Gradient
             {
                 let mut rhs = self.rhs_grad.borrow_mut();
-                if let Ok(lhs_t) = self.lhs_data.transpose() {
-                    if let Ok(dr_db) = lhs_t.matmul(grad) {
-                        if let Some(r) = rhs.as_mut() {
-                            *r = (r.add(&dr_db)).unwrap();
-                        } else {
-                            *rhs = Some(dr_db);
-                        }
-                    }
+                let lhs_t = self.lhs_data.transpose().unwrap();
+                let dr_db = lhs_t.matmul(grad).unwrap();
+                if let Some(r) = rhs.as_mut() {
+                    *r = (r.add(&dr_db)).unwrap();
+                } else {
+                    *rhs = Some(dr_db);
                 }
             }
         }
@@ -305,5 +328,186 @@ mod tests {
         assert_eq!(a.grad.borrow().as_ref().unwrap().data()[0], 4.0);
         assert_eq!(b.grad.borrow().as_ref().unwrap().data()[0], 4.0);
         assert_eq!(c.grad.borrow().as_ref().unwrap().data()[0], 5.0);
+    }
+
+    #[test]
+    fn test_matmul_backward() {
+        // A = [[1, 2], [3, 4]] (2x2)
+        // B = [[5, 6], [7, 8]] (2x2)
+        // C = A @ B
+        // C = [[19, 22], [43, 50]]
+
+        // Let Loss L = sum(C) = 19 + 22 + 43 + 50 = 134
+        // dL/dC = [[1, 1], [1, 1]]
+
+        // dL/dA = dL/dC @ B^T
+        //       = [[1, 1], [1, 1]] @ [[5, 7], [6, 8]]
+        //       = [[11, 15], [11, 15]]
+
+        // dL/dB = A^T @ dL/dC
+        //       = [[1, 3], [2, 4]] @ [[1, 1], [1, 1]]
+        //       = [[4, 4], [6, 6]]
+
+        let a_data = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], [2, 2]).unwrap();
+        let b_data = Tensor::new(vec![5.0, 6.0, 7.0, 8.0], [2, 2]).unwrap();
+
+        let a = Variable::new(a_data);
+        let b = Variable::new(b_data);
+
+        let c = a.matmul(&b).unwrap();
+
+        // Manually seed gradient with ones (equivalent to sum(C))
+        *c.grad.borrow_mut() = Some(Tensor::ones([2, 2]));
+
+        // We need to manually trigger backward on the node because c is not a scalar
+        // and Variable::backward() assumes scalar and seeds with 1.0.
+        // But here we want to test the MatMulNode backward specifically.
+        // However, Variable::backward() calls engine::backward(self.node).
+        // If we seed grad manually, we can call c.backward() but we need to be careful
+        // that it doesn't overwrite our seed.
+        // Variable::backward() checks `if self.grad.borrow().is_none()`.
+        // So if we seed it first, it should be fine.
+
+        c.backward();
+
+        let a_grad = a.grad.borrow().as_ref().unwrap().clone();
+        let b_grad = b.grad.borrow().as_ref().unwrap().clone();
+
+        assert_eq!(a_grad.data(), &[11.0, 15.0, 11.0, 15.0]);
+        assert_eq!(b_grad.data(), &[4.0, 4.0, 6.0, 6.0]);
+    }
+
+    #[test]
+    fn test_matmul_chain_rule() {
+        // y = sum( (A @ x) * x )
+        // A = [[1, 2], [3, 4]]
+        // x = [1, 2]
+        // A@x = [5, 11]
+        // (A@x)*x = [5, 22]
+        // y = 27
+
+        // This is a bit complex to derive manually quickly.
+        // Let's try a simpler one: y = sum(A @ x)
+        // A = [[1, 2], [3, 4]]
+        // x = [1, 2]
+        // A@x = [5, 11]
+        // y = 16
+
+        // dy/dx = A^T @ ones
+        //       = [[1, 3], [2, 4]] @ [1, 1]
+        //       = [4, 6]
+
+        // dy/dA = ones @ x^T (outer product)
+        //       = [1, 1] @ [1, 2]
+        //       = [[1, 2], [1, 2]]
+
+        let a_data = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], [2, 2]).unwrap();
+        let x_data = Tensor::new(vec![1.0, 2.0], [2, 1]).unwrap(); // Column vector
+
+        let a = Variable::new(a_data);
+        let x = Variable::new(x_data);
+
+        let y_vec = a.matmul(&x).unwrap();
+
+        // To make it a scalar for easy backward:
+        // We don't have a "sum" operation in autograd yet.
+        // But we can simulate "sum" by doing dot product with ones, or just seeding gradient with ones.
+        // Let's seed gradient of y_vec with ones.
+
+        *y_vec.grad.borrow_mut() = Some(Tensor::ones([2, 1]));
+        y_vec.backward();
+
+        let x_grad = x.grad.borrow().as_ref().unwrap().clone();
+        let a_grad = a.grad.borrow().as_ref().unwrap().clone();
+
+        assert_eq!(x_grad.data(), &[4.0, 6.0]);
+        assert_eq!(a_grad.data(), &[1.0, 2.0, 1.0, 2.0]);
+    }
+
+    #[test]
+    fn test_add_accumulation() {
+        // y = x + x + x
+        // x = 3
+        // y = 9
+        // dy/dx = 3
+
+        let x = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+        let y = x.clone() + x.clone() + x.clone();
+
+        y.backward();
+
+        assert_eq!(x.grad.borrow().as_ref().unwrap().data()[0], 3.0);
+    }
+
+    #[test]
+    fn test_mul_accumulation() {
+        // y = x * x * x
+        // x = 3
+        // y = 27
+        // dy/dx = 3x^2 = 27
+
+        let x = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+        let y = x.clone() * x.clone() * x.clone();
+
+        y.backward();
+
+        assert_eq!(x.grad.borrow().as_ref().unwrap().data()[0], 27.0);
+    }
+
+    #[test]
+    fn test_matmul_accumulation() {
+        // Y = X @ X @ X
+        // X = [[1, 0], [0, 1]] (Identity)
+        // Y = I
+        // Loss = sum(Y) = 2
+        // dL/dX should be 3 * I ?
+        // Let's use scalar logic for intuition: y = x^3, dy/dx = 3x^2. If x=1, dy/dx=3.
+        // For matrix: d(X^3)/dX.
+        // If X = I, X^2 = I, X^3 = I.
+        // dL/dX = 3 * X^2 = 3 * I.
+
+        let x_data = Tensor::new(vec![1.0, 0.0, 0.0, 1.0], [2, 2]).unwrap();
+        let x = Variable::new(x_data);
+
+        let y = x.matmul(&x).unwrap().matmul(&x).unwrap();
+
+        *y.grad.borrow_mut() = Some(Tensor::ones([2, 2]));
+        y.backward();
+
+        let x_grad = x.grad.borrow().as_ref().unwrap().clone();
+        // Expected gradient is 3 * ones (since we seeded with ones and dY/dX is 3*I effectively distributed)
+        // Wait.
+        // Y = X^3. L = sum(Y).
+        // dL/dX = 3 * (X^T)^2 @ Ones?
+        // Let's just check the result.
+        // dL/dX = [[3, 3], [3, 3]]
+
+        assert_eq!(x_grad.data(), &[3.0, 3.0, 3.0, 3.0]);
+    }
+
+    #[test]
+    fn test_non_leaf_operations() {
+        // Test operations where RHS has a node (is not a leaf)
+        // This ensures coverage for `if let Some(p) = &rhs.node` branches
+
+        let x = Variable::new(Tensor::new(vec![2.0], []).unwrap());
+
+        // a has a node
+        let a = x.clone() * x.clone(); // 4.0
+
+        // b = a + a. RHS a has node.
+        let b = a.clone() + a.clone(); // 8.0
+
+        // c = a * a. RHS a has node.
+        let c = a.clone() * a.clone(); // 16.0
+
+        // d = a @ a. RHS a has node. (Need rank 2 for matmul)
+        let m = Variable::new(Tensor::new(vec![2.0], [1, 1]).unwrap());
+        let n = m.matmul(&m).unwrap(); // n has node
+        let _p = n.matmul(&n).unwrap(); // RHS n has node
+
+        b.backward();
+        c.backward();
+        // We don't check gradients here, just ensuring the code paths run.
     }
 }

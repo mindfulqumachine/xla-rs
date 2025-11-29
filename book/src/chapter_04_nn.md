@@ -50,14 +50,34 @@ Mathematically, each layer performs a linear transformation followed by a non-li
 $$ y = f(xA^T + b) $$
 
 Where:
-- $x$ is the input vector.
-- $A$ is the weight matrix.
-- $b$ is the bias vector.
-- $f$ is the activation function (e.g., Sigmoid, ReLU).
+- `x` is the input vector.
+- `A` is the weight matrix.
+- `b` is the bias vector.
+- `f` is the activation function (e.g., Sigmoid, ReLU).
+
+### Why Non-Linearity?
+
+Without the activation function `f`, the network would just be a sequence of linear transformations.
+
+$$ y = x A_1^T A_2^T ... A_n^T + b_{total} $$
+
+Since the product of matrices is just another matrix, a deep network without non-linearities is mathematically equivalent to a single linear layer. The activation function introduces non-linearity, allowing the network to approximate complex functions (like XOR) that a simple line cannot separate.
 
 ## The Linear Layer
 
-The most fundamental layer is the `Linear` (or Fully Connected) layer. It performs the affine transformation $y = xA^T + b$.
+The most fundamental layer is the `Linear` (or Fully Connected) layer. It performs the affine transformation \\( y = xA^T + b \\).
+
+> [!NOTE]
+> **Why \\(A^T\\)?**
+> In standard linear algebra, a linear transformation is often written as \\(y = Ax\\), where \\(x\\) is a column vector. In deep learning, we typically process inputs in batches, where each input is a row in the matrix \\(x\\). To maintain consistency with the standard definition where the weight matrix \\(A\\) has shape `[out_features, in_features]`, we transpose it to perform the matrix multiplication: \\(y = xA^T\\).
+
+[Visualize Linear vs Non-linear (Sigmoid) on WolframAlpha](https://www.wolframalpha.com/input?i=plot+x+and+1%2F%281%2Be%5E-x%29+from+-5+to+5)
+
+[Visualize Linear vs Non-linear (ReLU) on WolframAlpha](https://www.wolframalpha.com/input?i=plot+x+and+max%280%2C+x%29+from+-5+to+5)
+
+> [!NOTE]
+> **Is ReLU Non-Linear?**
+> You might notice that ReLU (\\(f(x) = \max(0, x)\\)) is composed of two linear segments (\\(y=0\\) and \\(y=x\\)). This makes it **piecewise linear**. However, in deep learning, this "kink" at zero is sufficient to break linearity. It allows stacked layers to approximate complex, non-linear functions. If we used a purely linear function (like \\(y=x\\)), stacking layers would just result in another single linear transformation, no matter how deep the network is.
 
 In `xla-rs`, we define a `Linear` layer that holds `Variable`s for weights and biases. Using `Variable`s allows us to automatically compute gradients during training.
 
@@ -65,9 +85,26 @@ In `xla-rs`, we define a `Linear` layer that holds `Variable`s for weights and b
 # extern crate xla_rs;
 # use xla_rs::autograd::Variable;
 # use xla_rs::tensor::{Tensor, Cpu};
+/// A Linear layer (also known as a Fully Connected layer).
+///
+/// This layer applies a linear transformation to the incoming data: `y = xA^T + b`.
+/// It represents a collection of neurons where every input is connected to every output.
+///
+/// **Note**: For simplicity, we use concrete types (`f32`, Rank 2) here.
+/// A production library would make this struct generic over the element type `T` and device.
 struct Linear {
-    weight: Variable<f32, 2>,
-    bias: Variable<f32, 2>, // Shape [1, out] for broadcasting
+    /// The learnable weights of the layer.
+    ///
+    /// `Variable<f32, 2>` denotes a 2-dimensional tensor (a matrix) of 32-bit floats.
+    /// - The `2` represents the Rank (number of dimensions), NOT the number of neurons.
+    /// - Shape: `[out_features, in_features]`
+    weight: Variable<f32, 2>, 
+    
+    /// The learnable bias of the layer.
+    ///
+    /// The bias allows each neuron to shift its activation function.
+    /// - Shape: `[1, out_features]` (broadcasted during addition)
+    bias: Variable<f32, 2>, 
 }
 
 impl Linear {
@@ -97,6 +134,8 @@ impl Linear {
 To solve non-linear problems (like XOR), we need non-linear activation functions. A common choice is the Sigmoid function:
 
 $$ \sigma(x) = \frac{1}{1 + e^{-x}} $$
+
+[View Plot on WolframAlpha](https://www.wolframalpha.com/input?i=plot+1%2F%281%2Be%5E-x%29)
 
 We can implement this as a custom `GraphNode` in `xla-rs` to support automatic differentiation.
 
@@ -129,7 +168,25 @@ The XOR function is a classic problem that requires a non-linear model.
 | 1, 0  | 1      |
 | 1, 1  | 0      |
 
+| 1, 1  | 0      |
+
+We can visualize this problem as trying to separate the points $(0,0)$ and $(1,1)$ (Target 0) from $(0,1)$ and $(1,0)$ (Target 1).
+
+```text
+1 |  1 (True)   0 (False)
+  |
+0 |  0 (False)  1 (True)
+  +---------------------
+     0          1
+```
+
+Notice that you cannot draw a single straight line to separate the 0s from the 1s. This is why we need a non-linear model.
+
 Let's build a network with one hidden layer to solve it.
+
+### A Note on `Variable`
+
+In the code below, you'll see the `Variable` struct. This is not a general neural network concept but a specific abstraction in `xla-rs`. It wraps a `Tensor` to track the computation history (the "graph") needed for automatic differentiation (autograd). When we perform operations on `Variable`s, the library builds a graph that allows us to call `.backward()` and compute gradients automatically.
 
 ### Complete Example
 

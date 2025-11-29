@@ -7,6 +7,21 @@ use std::rc::Rc;
 /// This function performs a topological sort of the computation graph to ensure
 /// that dependencies are processed before their consumers. It then calls
 /// `.backward()` on each node in reverse topological order.
+///
+/// # Parallelism Note
+///
+/// The backward pass is currently executed serially. While the computation graph
+/// theoretically allows for inter-op parallelism (processing independent nodes concurrently),
+/// this implementation prioritizes simplicity and relies on **intra-op parallelism**.
+///
+/// - **Intra-op parallelism**: Individual operations (like matrix multiplication) are
+///   parallelized internally (e.g., using BLAS or multi-threaded implementations).
+///   This usually yields better performance gains for deep learning workloads as
+///   operations are often heavy enough to saturate system resources.
+/// - **Inter-op parallelism**: Running multiple graph nodes simultaneously requires
+///   thread-safe graph structures (`Arc<Mutex<...>>`) and complex scheduling,
+///   which adds significant overhead and complexity for often marginal gains
+///   compared to optimizing the operations themselves.
 pub fn backward(root: Option<Rc<dyn GraphNode>>) {
     let Some(root) = root else { return };
 

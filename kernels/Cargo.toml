@@ -1,0 +1,16 @@
+[package]
+name = "xla-rs-kernels"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rayon = "1.11.0"
+num-traits = "0.2.19"
+thiserror = "2.0.17"
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "ops_bench"
+harness = false

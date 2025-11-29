@@ -18,15 +18,26 @@
 >
 > ```bash
 > # Run the book server + local playground (http://localhost:3000)
-> make serve
->
-> # Run book tests
-> make test-book
+> make serve-book
 > ```
 >
-> To fully enjoy the interactive examples:
-> 1.  Run `make serve`.
-> 2.  Navigate to `http://localhost:3000`.
+> This command will:
+> 1.  Start the local playground server (`local_playground.py`) in the background.
+> 2.  Start the `mdBook` server.
+>
+> ### 2. Access the Book
+>
+> Open your browser and navigate to `http://localhost:3000`. You should see the book.
+>
+> ### 3. Run Code Examples
+>
+> Navigate to any chapter with Rust code examples (e.g., Chapter 2). You should see a "Run" button (a play icon) on the code blocks. Click it to compile and run the code using the local backend.
+>
+> ### Troubleshooting
+>
+> If the "Run" button doesn't appear or doesn't work:
+>
+> 1.  Run `make serve-book`.
 
 ## Features
 
