@@ -15,7 +15,7 @@ In Deep Learning, we train models by minimizing a loss function. Optimization al
 
 ### Practical Example: Linear Regression Step
 
-Consider a simple linear regression model $y = w \cdot x + b$. We want to find $w$ and $b$ that minimize the squared error loss $L = (y - \text{target})^2$.
+Consider a simple linear regression model \\(y = w \cdot x + b\\). We want to find \\(w\\) and \\(b\\) that minimize the squared error loss \\(L = (y - \text{target})^2\\).
 
 Without autograd, you would need to manually derive:
 $$ \frac{\partial L}{\partial w} = 2(wx + b - \text{target}) \cdot x $$

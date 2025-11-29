@@ -133,12 +133,12 @@ impl Linear {
 
 In the `forward` method above, we compute `x.matmul(&self.weight)`.
 
-Mathematically, a linear layer is $y = xA^T + b$.
--   $x$: Input `[Batch, In]`
--   $A$: Weights `[Out, In]`
--   $A^T$: Transposed Weights `[In, Out]`
+Mathematically, a linear layer is \\(y = xA^T + b\\).
+-   \\(x\\): Input `[Batch, In]`
+-   \\(A\\): Weights `[Out, In]`
+-   \\(A^T\\): Transposed Weights `[In, Out]`
 
-The matrix multiplication $x \times A^T$ results in `[Batch, Out]`.
+The matrix multiplication \\(x \times A^T\\) results in `[Batch, Out]`.
 
 #### Inference Optimization
 
@@ -213,7 +213,7 @@ The XOR function is a classic problem that requires a non-linear model.
 
 | 1, 1  | 0      |
 
-We can visualize this problem as trying to separate the points $(0,0)$ and $(1,1)$ (Target 0) from $(0,1)$ and $(1,0)$ (Target 1).
+We can visualize this problem as trying to separate the points \\((0,0)\\) and \\((1,1)\\) (Target 0) from \\((0,1)\\) and \\((1,0)\\) (Target 1).
 
 ```text
 1 |  1 (True)   0 (False)

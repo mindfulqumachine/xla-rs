@@ -140,7 +140,7 @@ $$ \texttt{strides}[k] = \prod_{m=k+1}^{N-1} \texttt{shape}[m] $$
 
 **Example: A 3D Tensor [2, 2, 3]**
 Shape: `[Depth=2, Rows=2, Cols=3]`
-Total elements: $$2 \times 2 \times 3 = 12$$.
+Total elements: \\(2 \times 2 \times 3 = 12\\).
 
 -   **Dimension 2 (Cols)**: Moving 1 step changes the column. `strides[2] = 1`.
 -   **Dimension 1 (Rows)**: Moving 1 step skips a whole row of columns. `strides[1] = shape[2] = 3`.
@@ -240,7 +240,7 @@ In `xla-rs`, matrix multiplication (`matmul`) is a powerful operation that suppo
 
 #### How it works
 
-For any tensor of Rank $N \ge 2$, the first $N-2$ dimensions are treated as **batch dimensions**, and the multiplication is performed on the last two dimensions.
+For any tensor of Rank \\(N \ge 2\\), the first \\(N-2\\) dimensions are treated as **batch dimensions**, and the multiplication is performed on the last two dimensions.
 
 -   **Input A**: `[Batch..., M, K]`
 -   **Input B**: `[Batch..., K, N]`
