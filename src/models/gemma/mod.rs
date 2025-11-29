@@ -1,11 +1,8 @@
-use crate::models::gemma::attention::MultiHeadAttention;
+use crate::nn::transformer::attention::MultiHeadAttention;
 use crate::nn::{Activation, Linear, RMSNorm};
 use crate::tensor::{Cpu, Result, Tensor, TensorElem};
 use num_traits::Float;
 use std::ops::Add;
-
-pub mod attention;
-pub mod rope;
 
 #[derive(Debug, Clone)]
 pub struct GemmaConfig {

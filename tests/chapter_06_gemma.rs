@@ -1,6 +1,6 @@
-use xla_rs::models::gemma::attention::MultiHeadAttention;
-use xla_rs::models::gemma::rope::precompute_freqs_cis;
 use xla_rs::models::gemma::{GemmaBlock, GemmaConfig, GemmaModel, MLP};
+use xla_rs::nn::transformer::attention::MultiHeadAttention;
+use xla_rs::nn::transformer::rope::precompute_freqs_cis;
 use xla_rs::nn::{Linear, RMSNorm};
 use xla_rs::tensor::Tensor;
 

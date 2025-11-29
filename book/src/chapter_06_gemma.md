@@ -18,7 +18,7 @@ Note that Gemma uses **Pre-Norm** with a twist: the residual connection is added
 ```rust
 # extern crate xla_rs;
 # use xla_rs::tensor::TensorElem;
-# use xla_rs::models::gemma::attention::MultiHeadAttention;
+# use xla_rs::nn::transformer::attention::MultiHeadAttention;
 # use xla_rs::models::gemma::MLP;
 # use xla_rs::nn::RMSNorm;
 

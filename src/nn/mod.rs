@@ -1,8 +1,8 @@
 pub mod activation;
 pub mod linear;
 pub mod module;
-pub mod moe;
 pub mod norm;
+pub mod transformer;
 
 pub use activation::Activation;
 pub use linear::{AllowedLinearRank, Linear};
