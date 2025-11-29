@@ -1,6 +1,6 @@
 # Chapter 7: Inference Optimizations
 
-> [!NOTE]
+> \[!NOTE]
 > This chapter is under construction.
 
 ## Topics to Cover

@@ -60,10 +60,10 @@ assert_eq!(w.grad.borrow().as_ref().unwrap().data()[0], -12.0);
 We implement a **Define-by-Run** (or Tape-based) autograd system, similar to PyTorch. This means the computation graph is built dynamically as you perform operations.
 
 The core logic is located in:
--   [`src/autograd/mod.rs`](file:///Users/blitz/my-oss/xla-rs/src/autograd/mod.rs): Defines the `Variable` struct and `GraphNode` trait.
--   [`src/autograd/engine.rs`](file:///Users/blitz/my-oss/xla-rs/src/autograd/engine.rs): Implements the backward pass engine (topological sort and graph traversal).
--   [`src/autograd/ops.rs`](file:///Users/blitz/my-oss/xla-rs/src/autograd/ops.rs): Implements the `GraphNode` trait for specific operations.
--   [`src/autograd/functional.rs`](file:///Users/blitz/my-oss/xla-rs/src/autograd/functional.rs): Implements functional API transformations like `grad`.
+-   [`src/autograd/mod.rs`](https://github.com/mindfulqumachine/xla-rs/blob/main/core/src/autograd/mod.rs): Defines the `Variable` struct and `GraphNode` trait.
+-   [`src/autograd/engine.rs`](https://github.com/mindfulqumachine/xla-rs/blob/main/core/src/autograd/engine.rs): Implements the backward pass engine (topological sort and graph traversal).
+-   [`src/autograd/ops.rs`](https://github.com/mindfulqumachine/xla-rs/blob/main/core/src/autograd/ops.rs): Implements the `GraphNode` trait for specific operations.
+-   [`src/autograd/functional.rs`](https://github.com/mindfulqumachine/xla-rs/blob/main/core/src/autograd/functional.rs): Implements functional API transformations like `grad`.
 
 ## The Tape
 

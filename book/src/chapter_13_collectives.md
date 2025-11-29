@@ -1,6 +1,6 @@
 # Chapter 13: Communication Collectives
 
-> [!NOTE]
+> \[!NOTE]
 > This chapter is under construction.
 
 ## Topics to Cover

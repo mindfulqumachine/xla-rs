@@ -1,7 +1,7 @@
 .PHONY: build test lint book serve playground test-book clean doc doc-test serve-doc
 
 # Default target
-all: fmt build lint test test-book doc doc-test spellcheck
+all: fmt build lint test test-book doc doc-test spellcheck linkcheck
 
 # Rust commands
 build:
@@ -40,12 +40,12 @@ serve-book:
 	@echo "Starting local playground and mdbook..."
 	@echo "The playground server runs in the background. Press Ctrl+C to stop both."
 	@trap 'kill %1' SIGINT EXIT; \
-	python3 local_playground.py & \
+	python3 book/local_playground.py & \
 	mdbook serve book
 
 playground:
 	@echo "Starting local playground server on port 3001..."
-	python3 local_playground.py
+	python3 book/local_playground.py
 
 test-book: build
 	cargo clean -p xla_rs
@@ -60,11 +60,18 @@ coverage:
 	fi
 	cargo tarpaulin --workspace --fail-under 90 --out Xml --out Html
 
+linkcheck:
+	@if ! command -v mdbook-linkcheck2 >/dev/null 2>&1; then \
+		echo "mdbook-linkcheck2 not found. Installing..."; \
+		cargo install mdbook-linkcheck2; \
+	fi
+	mdbook build book
+
 spellcheck:
 	@if ! command -v typos >/dev/null 2>&1; then \
 		echo "typos not found. Installing..."; \
 		cargo install typos-cli; \
 	fi
-	typos
+	typos book
 
 ci: build lint test test-book doc-test coverage spellcheck

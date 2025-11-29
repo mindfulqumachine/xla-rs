@@ -1,6 +1,6 @@
 # Chapter 8: Distributed Inference
 
-> [!NOTE]
+> \[!NOTE]
 > This chapter is under construction.
 
 ## Topics to Cover

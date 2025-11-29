@@ -29,3 +29,4 @@ book/book/
 # Added by cargo-tarpaulin
 tarpaulin-report.html
 cobertura.xml
+profile.txt

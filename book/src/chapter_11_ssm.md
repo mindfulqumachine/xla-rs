@@ -1,6 +1,6 @@
 # Chapter 11: State Space Models
 
-> [!NOTE]
+> \[!NOTE]
 > This chapter is under construction.
 
 ## Topics to Cover

@@ -1,6 +1,6 @@
 # Chapter 14: Reinforcement Learning
 
-> [!NOTE]
+> \[!NOTE]
 > This chapter is under construction.
 
 ## Topics to Cover

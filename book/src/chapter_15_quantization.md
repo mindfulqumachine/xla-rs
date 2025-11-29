@@ -1,6 +1,6 @@
 # Chapter 15: Quantization
 
-> [!NOTE]
+> \[!NOTE]
 > This chapter is under construction.
 
 ## Topics to Cover

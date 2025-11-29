@@ -67,7 +67,7 @@ Since the product of matrices is just another matrix, a deep network without non
 
 The most fundamental layer is the `Linear` (or Fully Connected) layer. It performs the affine transformation \\( y = xA^T + b \\).
 
-> [!NOTE]
+> \[!NOTE]
 > **Why \\(A^T\\)?**
 > In standard linear algebra, a linear transformation is often written as \\(y = Ax\\), where \\(x\\) is a column vector. In deep learning, we typically process inputs in batches, where each input is a row in the matrix \\(x\\). To maintain consistency with the standard definition where the weight matrix \\(A\\) has shape `[out_features, in_features]`, we transpose it to perform the matrix multiplication: \\(y = xA^T\\).
 
@@ -75,7 +75,7 @@ The most fundamental layer is the `Linear` (or Fully Connected) layer. It perfor
 
 [Visualize Linear vs Non-linear (ReLU) on WolframAlpha](https://www.wolframalpha.com/input?i=plot+x+and+max%280%2C+x%29+from+-5+to+5)
 
-> [!NOTE]
+> \[!NOTE]
 > **Is ReLU Non-Linear?**
 > You might notice that ReLU (\\(f(x) = \max(0, x)\\)) is composed of two linear segments (\\(y=0\\) and \\(y=x\\)). This makes it **piecewise linear**. However, in deep learning, this "kink" at zero is sufficient to break linearity. It allows stacked layers to approximate complex, non-linear functions. If we used a purely linear function (like \\(y=x\\)), stacking layers would just result in another single linear transformation, no matter how deep the network is.
 

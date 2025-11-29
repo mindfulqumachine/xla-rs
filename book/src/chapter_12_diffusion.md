@@ -1,6 +1,6 @@
 # Chapter 12: Generative Art: Diffusion
 
-> [!NOTE]
+> \[!NOTE]
 > This chapter is under construction.
 
 ## Topics to Cover

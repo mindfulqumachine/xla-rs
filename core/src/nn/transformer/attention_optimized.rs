@@ -3,6 +3,8 @@ use crate::tensor::{Cpu, Result, Tensor, TensorElem};
 use num_traits::Float;
 use rayon::prelude::*;
 
+const PARALLEL_THRESHOLD: usize = 4096;
+
 /// Key-Value Cache for autoregressive generation.
 ///
 /// Stores the Key and Value tensors for all previous tokens in the sequence.
@@ -47,32 +49,44 @@ impl<T: TensorElem> KVCache<T> {
         // Parallelize over Batch and Heads using chunks
         // Each chunk corresponds to one head's full sequence buffer [MaxSeqLen, HeadDim]
         // Chunk size = MaxSeqLen * HeadDim
-        cache_k_data
-            .par_chunks_mut(max_seq * d)
-            .zip(cache_v_data.par_chunks_mut(max_seq * d))
-            .enumerate()
-            .for_each(|(i, (k_head_buf, v_head_buf))| {
-                // i is global head index (batch * h + head)
-                // We need to find the corresponding source data
-                // Source is [Batch, Heads, SeqLen, HeadDim]
-                // Source is also contiguous per head?
-                // new_k shape: [B, H, S, D]
-                // Yes, new_k is also laid out as B -> H -> S -> D
-                // So the i-th head in cache corresponds to the i-th head in new_k
+        let total_elements = _b * _h * s * d;
 
-                // Source chunk size = S * D
-                let src_offset = i * s * d;
-                let src_k = &new_k_data[src_offset..src_offset + s * d];
-                let src_v = &new_v_data[src_offset..src_offset + s * d];
+        let update_fn = |(i, (k_head_buf, v_head_buf)): (usize, (&mut [T], &mut [T]))| {
+            // i is global head index (batch * h + head)
+            // We need to find the corresponding source data
+            // Source is [Batch, Heads, SeqLen, HeadDim]
+            // Source is also contiguous per head?
+            // new_k shape: [B, H, S, D]
+            // Yes, new_k is also laid out as B -> H -> S -> D
+            // So the i-th head in cache corresponds to the i-th head in new_k
 
-                // Destination offset within the head buffer
-                // We are writing to [start_pos..start_pos+s]
-                let dst_offset = start_pos * d;
-                let dst_len = s * d;
+            // Source chunk size = S * D
+            let src_offset = i * s * d;
+            let src_k = &new_k_data[src_offset..src_offset + s * d];
+            let src_v = &new_v_data[src_offset..src_offset + s * d];
 
-                k_head_buf[dst_offset..dst_offset + dst_len].copy_from_slice(src_k);
-                v_head_buf[dst_offset..dst_offset + dst_len].copy_from_slice(src_v);
-            });
+            // Destination offset within the head buffer
+            // We are writing to [start_pos..start_pos+s]
+            let dst_offset = start_pos * d;
+            let dst_len = s * d;
+
+            k_head_buf[dst_offset..dst_offset + dst_len].copy_from_slice(src_k);
+            v_head_buf[dst_offset..dst_offset + dst_len].copy_from_slice(src_v);
+        };
+
+        if total_elements >= PARALLEL_THRESHOLD {
+            cache_k_data
+                .par_chunks_mut(max_seq * d)
+                .zip(cache_v_data.par_chunks_mut(max_seq * d))
+                .enumerate()
+                .for_each(update_fn);
+        } else {
+            cache_k_data
+                .chunks_mut(max_seq * d)
+                .zip(cache_v_data.chunks_mut(max_seq * d))
+                .enumerate()
+                .for_each(update_fn);
+        }
 
         self.length = start_pos + s;
         Ok(())
@@ -88,11 +102,12 @@ impl<T: TensorElem> KVCache<T> {
     }
 }
 
+pub type ForwardWithWeightsOutput<T> = (Tensor<T, 3, Cpu>, Option<Tensor<T, 4, Cpu>>);
+pub type SplitQKVOutput<T> = (Tensor<T, 3, Cpu>, Tensor<T, 3, Cpu>, Tensor<T, 3, Cpu>);
+
 #[derive(Debug)]
 pub struct OptimizedMultiHeadAttention<T: TensorElem> {
-    pub q_proj: Linear<T>,
-    pub k_proj: Linear<T>,
-    pub v_proj: Linear<T>,
+    pub qkv_proj: Linear<T>,
     pub o_proj: Linear<T>,
 
     pub num_heads: usize,
@@ -110,17 +125,54 @@ impl<T: TensorElem + Float> OptimizedMultiHeadAttention<T> {
         k_proj: Linear<T>,
         v_proj: Linear<T>,
         o_proj: Linear<T>,
-    ) -> Self {
-        Self {
-            q_proj,
-            k_proj,
-            v_proj,
+    ) -> Result<Self> {
+        // Fuse Q, K, V projections into one
+        let q_w = q_proj.weight.data();
+        let k_w = k_proj.weight.data();
+        let v_w = v_proj.weight.data();
+
+        let mut qkv_w_data = Vec::with_capacity(q_w.len() + k_w.len() + v_w.len());
+        qkv_w_data.extend_from_slice(q_w);
+        qkv_w_data.extend_from_slice(k_w);
+        qkv_w_data.extend_from_slice(v_w);
+
+        let in_features = q_proj.weight.shape()[1];
+        // Wait, GQA means K and V might have fewer heads!
+        // q_proj: [H * D, I]
+        // k_proj: [KV * D, I]
+        // v_proj: [KV * D, I]
+
+        let q_out = q_proj.weight.shape()[0];
+        let k_out = k_proj.weight.shape()[0];
+        let v_out = v_proj.weight.shape()[0];
+
+        let qkv_out = q_out + k_out + v_out;
+        let qkv_weight = Tensor::new(qkv_w_data, [qkv_out, in_features])?;
+
+        let qkv_bias =
+            if let (Some(qb), Some(kb), Some(vb)) = (&q_proj.bias, &k_proj.bias, &v_proj.bias) {
+                let q_b = qb.data();
+                let k_b = kb.data();
+                let v_b = vb.data();
+                let mut qkv_b_data = Vec::with_capacity(q_b.len() + k_b.len() + v_b.len());
+                qkv_b_data.extend_from_slice(q_b);
+                qkv_b_data.extend_from_slice(k_b);
+                qkv_b_data.extend_from_slice(v_b);
+                Some(Tensor::new(qkv_b_data, [qkv_out])?)
+            } else {
+                None
+            };
+
+        let qkv_proj = Linear::new(qkv_weight, qkv_bias);
+
+        Ok(Self {
+            qkv_proj,
             o_proj,
             num_heads,
             num_kv_heads,
             head_dim,
             scaling: T::one() / T::from_usize(head_dim).unwrap().sqrt(),
-        }
+        })
     }
 
     /// Optimized Forward Pass
@@ -148,19 +200,34 @@ impl<T: TensorElem + Float> OptimizedMultiHeadAttention<T> {
         freqs_sin: &Tensor<T, 2, Cpu>,
         kv_cache: &mut Option<KVCache<T>>,
         start_pos: usize,
-    ) -> Result<(Tensor<T, 3, Cpu>, Option<Tensor<T, 4, Cpu>>)> {
+    ) -> Result<ForwardWithWeightsOutput<T>> {
         let [_b, s, _] = *x.shape();
 
-        // 1. Projections (Standard Matmul)
-        let q = self.q_proj.forward(x)?;
-        let k = self.k_proj.forward(x)?;
-        let v = self.v_proj.forward(x)?;
+        // 1. Fused QKV Projection
+        let qkv = self.qkv_proj.forward(x)?; // [B, S, Q_dim + K_dim + V_dim]
 
-        // 2. Fused Reshape + Transpose + RoPE
+        // 2. Split Q, K, V
+        // We need to split the last dimension.
+        // Q: [B, S, num_heads * head_dim]
+        // K: [B, S, num_kv_heads * head_dim]
+        // V: [B, S, num_kv_heads * head_dim]
+
+        let q_dim = self.num_heads * self.head_dim;
+        let kv_dim = self.num_kv_heads * self.head_dim;
+
+        let (q, k, v) = self.split_qkv(&qkv, q_dim, kv_dim)?;
+
+        // 3. Fused Reshape + Transpose + RoPE
+        // We can fuse RoPE into the split if we are clever, but for now let's keep it separate
+        // or fuse it into the next step.
+        // Actually, `fused_rope_transpose` takes [B, S, H*D].
+        // We can pass `q` and `k` to it.
+
         let q_rope = self.fused_rope_transpose(&q, freqs_cos, freqs_sin, self.num_heads)?;
         let k_rope = self.fused_rope_transpose(&k, freqs_cos, freqs_sin, self.num_kv_heads)?;
 
-        // v doesn't need RoPE, just transpose
+        // For V, we just need transpose [B, S, H, D] -> [B, H, S, D]
+        // But `v` is currently [B, S, H*D].
         let v_transposed = self.fused_transpose(&v, self.num_kv_heads)?;
 
         // 3. KV Cache Management
@@ -181,6 +248,61 @@ impl<T: TensorElem + Float> OptimizedMultiHeadAttention<T> {
     }
 
     /// Fuses Reshape [B, S, H*D] -> [B, S, H, D], Transpose -> [B, H, S, D], and RoPE.
+    fn split_qkv(
+        &self,
+        qkv: &Tensor<T, 3, Cpu>,
+        q_dim: usize,
+        kv_dim: usize,
+    ) -> Result<SplitQKVOutput<T>> {
+        let [b, s, total_dim] = *qkv.shape();
+        if total_dim != q_dim + 2 * kv_dim {
+            return Err(crate::tensor::TensorError::ShapeMismatch {
+                expected: vec![q_dim + 2 * kv_dim],
+                got: vec![total_dim],
+            });
+        }
+
+        let mut q = Tensor::zeros([b, s, q_dim]);
+        let mut k = Tensor::zeros([b, s, kv_dim]);
+        let mut v = Tensor::zeros([b, s, kv_dim]);
+
+        let qkv_data = qkv.data();
+        let q_data = q.data_mut();
+        let k_data = k.data_mut();
+        let v_data = v.data_mut();
+
+        // Parallelize over tokens (B * S)
+        // Parallelize over tokens (B * S)
+        let total_elements = b * s * total_dim;
+        #[allow(clippy::type_complexity)]
+        let split_fn = |(i, ((q_row, k_row), v_row)): (usize, ((&mut [T], &mut [T]), &mut [T]))| {
+            let src_offset = i * total_dim;
+            let src_row = &qkv_data[src_offset..src_offset + total_dim];
+
+            q_row.copy_from_slice(&src_row[0..q_dim]);
+            k_row.copy_from_slice(&src_row[q_dim..q_dim + kv_dim]);
+            v_row.copy_from_slice(&src_row[q_dim + kv_dim..]);
+        };
+
+        if total_elements >= PARALLEL_THRESHOLD {
+            q_data
+                .par_chunks_mut(q_dim)
+                .zip(k_data.par_chunks_mut(kv_dim))
+                .zip(v_data.par_chunks_mut(kv_dim))
+                .enumerate()
+                .for_each(split_fn);
+        } else {
+            q_data
+                .chunks_mut(q_dim)
+                .zip(k_data.chunks_mut(kv_dim))
+                .zip(v_data.chunks_mut(kv_dim))
+                .enumerate()
+                .for_each(split_fn);
+        }
+
+        Ok((q, k, v))
+    }
+
     fn fused_rope_transpose(
         &self,
         x: &Tensor<T, 3, Cpu>, // [B, S, H*D]
@@ -199,41 +321,46 @@ impl<T: TensorElem + Float> OptimizedMultiHeadAttention<T> {
         let sin_data = freqs_sin.data();
 
         // Parallelize over Batch and Heads
-        out_data
-            .par_chunks_mut(s * d)
-            .enumerate()
-            .for_each(|(i, out_head)| {
-                let batch_idx = i / num_heads;
-                let head_idx = i % num_heads;
+        // Parallelize over Batch and Heads
+        let total_elements = b * num_heads * s * d;
+        let rope_fn = |(i, out_head): (usize, &mut [T])| {
+            let batch_idx = i / num_heads;
+            let head_idx = i % num_heads;
 
-                for t in 0..s {
-                    // Input index: [batch, t, head * d]
-                    // But input is flat [B, S, H*D]
-                    // offset = batch * (S * H * D) + t * (H * D) + head * D
-                    let in_offset =
-                        (batch_idx * s * num_heads * d) + (t * num_heads * d) + (head_idx * d);
+            for t in 0..s {
+                // Input index: [batch, t, head * d]
+                // But input is flat [B, S, H*D]
+                // offset = batch * (S * H * D) + t * (H * D) + head * D
+                let in_offset =
+                    (batch_idx * s * num_heads * d) + (t * num_heads * d) + (head_idx * d);
 
-                    // RoPE index: corresponds to position `t` (relative to start of this seq chunk)
-                    // In real generation, we'd need absolute position `start_pos + t`.
-                    // For simplicity here assuming start_pos=0 or handled by caller passing correct freqs slice.
-                    let freq_idx = t;
+                // RoPE index: corresponds to position `t` (relative to start of this seq chunk)
+                // In real generation, we'd need absolute position `start_pos + t`.
+                // For simplicity here assuming start_pos=0 or handled by caller passing correct freqs slice.
+                let freq_idx = t;
 
-                    for j in 0..d / 2 {
-                        let x0 = x_data[in_offset + 2 * j];
-                        let x1 = x_data[in_offset + 2 * j + 1];
+                for j in 0..d / 2 {
+                    let x0 = x_data[in_offset + 2 * j];
+                    let x1 = x_data[in_offset + 2 * j + 1];
 
-                        let cos = cos_data[freq_idx * (d / 2) + j];
-                        let sin = sin_data[freq_idx * (d / 2) + j];
+                    let cos = cos_data[freq_idx * (d / 2) + j];
+                    let sin = sin_data[freq_idx * (d / 2) + j];
 
-                        // Apply RoPE and write to output [t, 2*j] (relative to head chunk)
-                        // Output chunk is [S, D], so index is t * d + 2*j
-                        let out_idx = t * d + 2 * j;
+                    // Apply RoPE and write to output [t, 2*j] (relative to head chunk)
+                    // Output chunk is [S, D], so index is t * d + 2*j
+                    let out_idx = t * d + 2 * j;
 
-                        out_head[out_idx] = x0 * cos - x1 * sin;
-                        out_head[out_idx + 1] = x0 * sin + x1 * cos;
-                    }
+                    out_head[out_idx] = x0 * cos - x1 * sin;
+                    out_head[out_idx + 1] = x0 * sin + x1 * cos;
                 }
-            });
+            }
+        };
+
+        if total_elements >= PARALLEL_THRESHOLD {
+            out_data.par_chunks_mut(s * d).enumerate().for_each(rope_fn);
+        } else {
+            out_data.chunks_mut(s * d).enumerate().for_each(rope_fn);
+        }
 
         Ok(out)
     }
@@ -250,23 +377,32 @@ impl<T: TensorElem + Float> OptimizedMultiHeadAttention<T> {
         let x_data = x.data();
         let out_data = out.data_mut();
 
-        out_data
-            .par_chunks_mut(s * d)
-            .enumerate()
-            .for_each(|(i, out_head)| {
-                let batch_idx = i / num_heads;
-                let head_idx = i % num_heads;
+        let total_elements = b * num_heads * s * d;
+        let transpose_fn = |(i, out_head): (usize, &mut [T])| {
+            let batch_idx = i / num_heads;
+            let head_idx = i % num_heads;
 
-                for t in 0..s {
-                    let in_offset =
-                        (batch_idx * s * num_heads * d) + (t * num_heads * d) + (head_idx * d);
-                    let out_idx = t * d;
+            for t in 0..s {
+                let in_offset =
+                    (batch_idx * s * num_heads * d) + (t * num_heads * d) + (head_idx * d);
+                let out_idx = t * d;
 
-                    // Copy head_dim elements
-                    out_head[out_idx..out_idx + d]
-                        .copy_from_slice(&x_data[in_offset..in_offset + d]);
-                }
-            });
+                // Copy head_dim elements
+                out_head[out_idx..out_idx + d].copy_from_slice(&x_data[in_offset..in_offset + d]);
+            }
+        };
+
+        if total_elements >= PARALLEL_THRESHOLD {
+            out_data
+                .par_chunks_mut(s * d)
+                .enumerate()
+                .for_each(transpose_fn);
+        } else {
+            out_data
+                .chunks_mut(s * d)
+                .enumerate()
+                .for_each(transpose_fn);
+        }
 
         Ok(out)
     }
@@ -280,7 +416,7 @@ impl<T: TensorElem + Float> OptimizedMultiHeadAttention<T> {
         v: &Tensor<T, 4, Cpu>, // [B, H_kv, Total_S, D]
         kv_len: usize,
         return_weights: bool,
-    ) -> Result<(Tensor<T, 3, Cpu>, Option<Tensor<T, 4, Cpu>>)> {
+    ) -> Result<ForwardWithWeightsOutput<T>> {
         let [b, h_q, s_q, d] = *q.shape();
         let [_, h_kv, _, _] = *k.shape();
 
@@ -362,92 +498,99 @@ impl<T: TensorElem + Float> OptimizedMultiHeadAttention<T> {
         let scale = self.scaling;
 
         // Iterate over tokens (Batch * Seq)
-        out_data
-            .par_chunks_mut(h_q * d)
-            .enumerate()
-            .for_each(|(i, out_token)| {
-                let batch_idx = i / s_q;
-                let seq_idx = i % s_q;
+        // Iterate over tokens (Batch * Seq)
+        let total_elements = b * s_q * h_q * d;
+        let attn_fn = |(i, out_token): (usize, &mut [T])| {
+            let batch_idx = i / s_q;
+            let seq_idx = i % s_q;
 
-                let w_ptr = weights_ptr_addr as *mut T;
+            let w_ptr = weights_ptr_addr as *mut T;
 
-                // For this token, we compute all heads
-                for head_idx in 0..h_q {
-                    let kv_head_idx = head_idx / n_rep;
+            // For this token, we compute all heads
+            for head_idx in 0..h_q {
+                let kv_head_idx = head_idx / n_rep;
 
-                    // Q vector: [B, H, S, D]
-                    let q_offset =
-                        (batch_idx * h_q * s_q * d) + (head_idx * s_q * d) + (seq_idx * d);
-                    let q_vec = &q_data[q_offset..q_offset + d];
+                // Q vector: [B, H, S, D]
+                let q_offset = (batch_idx * h_q * s_q * d) + (head_idx * s_q * d) + (seq_idx * d);
+                let q_vec = &q_data[q_offset..q_offset + d];
 
-                    // K/V vectors: [B, H_kv, Total_S, D]
-                    let k_offset_base =
-                        (batch_idx * h_kv * k.shape()[2] * d) + (kv_head_idx * k.shape()[2] * d);
-                    let v_offset_base =
-                        (batch_idx * h_kv * v.shape()[2] * d) + (kv_head_idx * v.shape()[2] * d);
+                // K/V vectors: [B, H_kv, Total_S, D]
+                let k_offset_base =
+                    (batch_idx * h_kv * k.shape()[2] * d) + (kv_head_idx * k.shape()[2] * d);
+                let v_offset_base =
+                    (batch_idx * h_kv * v.shape()[2] * d) + (kv_head_idx * v.shape()[2] * d);
 
-                    // 1. Compute Scores
-                    let mut scores = vec![T::zero(); kv_len];
-                    let mut max_score = T::min_value();
+                // 1. Compute Scores
+                let mut scores = vec![T::zero(); kv_len];
+                let mut max_score = T::min_value();
 
-                    for pos in 0..kv_len {
-                        let k_vec = &k_data[k_offset_base + pos * d..k_offset_base + (pos + 1) * d];
-                        let mut score = T::zero();
-                        for j in 0..d {
-                            score += q_vec[j] * k_vec[j];
-                        }
-                        score *= scale;
-                        scores[pos] = score;
-                        if score > max_score {
-                            max_score = score;
-                        }
+                for pos in 0..kv_len {
+                    let k_vec = &k_data[k_offset_base + pos * d..k_offset_base + (pos + 1) * d];
+                    let mut score = T::zero();
+                    for j in 0..d {
+                        score += q_vec[j] * k_vec[j];
                     }
-
-                    // 2. Softmax
-                    let mut sum_exp = T::zero();
-                    for score in scores.iter_mut() {
-                        let exp_val = (*score - max_score).to_f32().unwrap().exp();
-                        let exp_t = T::from_f32(exp_val).unwrap();
-                        *score = exp_t;
-                        sum_exp += exp_t;
+                    score *= scale;
+                    scores[pos] = score;
+                    if score > max_score {
+                        max_score = score;
                     }
-                    let inv_sum = T::one() / sum_exp;
-
-                    // Normalize scores to get probabilities (attention weights)
-                    for score in scores.iter_mut() {
-                        *score *= inv_sum;
-                    }
-
-                    // 3. Weighted Sum
-                    let mut out_vec = vec![T::zero(); d];
-                    for pos in 0..kv_len {
-                        let weight = scores[pos];
-                        let v_vec = &v_data[v_offset_base + pos * d..v_offset_base + (pos + 1) * d];
-                        for j in 0..d {
-                            out_vec[j] += weight * v_vec[j];
-                        }
-                    }
-
-                    // Save weights if requested
-                    if !w_ptr.is_null() {
-                        // Index: (batch * H_q * S_q * KV_Len) + (head * S_q * KV_Len) + (seq * KV_Len)
-                        // Note: S_q is the sequence length of the query (x), which is `s` in forward.
-                        // KV_Len is the total length of K/V.
-                        let w_offset = (batch_idx * h_q * s_q * kv_len)
-                            + (head_idx * s_q * kv_len)
-                            + (seq_idx * kv_len);
-
-                        unsafe {
-                            let dst = std::slice::from_raw_parts_mut(w_ptr.add(w_offset), kv_len);
-                            dst.copy_from_slice(&scores);
-                        }
-                    }
-
-                    // Write to output buffer
-                    let out_head_offset = head_idx * d;
-                    out_token[out_head_offset..out_head_offset + d].copy_from_slice(&out_vec[..d]);
                 }
-            });
+
+                // 2. Softmax
+                let mut sum_exp = T::zero();
+                for score in scores.iter_mut() {
+                    let exp_val = (*score - max_score).to_f32().unwrap().exp();
+                    let exp_t = T::from_f32(exp_val).unwrap();
+                    *score = exp_t;
+                    sum_exp += exp_t;
+                }
+                let inv_sum = T::one() / sum_exp;
+
+                // Normalize scores to get probabilities (attention weights)
+                for score in scores.iter_mut() {
+                    *score *= inv_sum;
+                }
+
+                // 3. Weighted Sum
+                let mut out_vec = vec![T::zero(); d];
+                for pos in 0..kv_len {
+                    let weight = scores[pos];
+                    let v_vec = &v_data[v_offset_base + pos * d..v_offset_base + (pos + 1) * d];
+                    for j in 0..d {
+                        out_vec[j] += weight * v_vec[j];
+                    }
+                }
+
+                // Save weights if requested
+                if !w_ptr.is_null() {
+                    // Index: (batch * H_q * S_q * KV_Len) + (head * S_q * KV_Len) + (seq * KV_Len)
+                    // Note: S_q is the sequence length of the query (x), which is `s` in forward.
+                    // KV_Len is the total length of K/V.
+                    let w_offset = (batch_idx * h_q * s_q * kv_len)
+                        + (head_idx * s_q * kv_len)
+                        + (seq_idx * kv_len);
+
+                    unsafe {
+                        let dst = std::slice::from_raw_parts_mut(w_ptr.add(w_offset), kv_len);
+                        dst.copy_from_slice(&scores);
+                    }
+                }
+
+                // Write to output buffer
+                let out_head_offset = head_idx * d;
+                out_token[out_head_offset..out_head_offset + d].copy_from_slice(&out_vec[..d]);
+            }
+        };
+
+        if total_elements >= PARALLEL_THRESHOLD {
+            out_data
+                .par_chunks_mut(h_q * d)
+                .enumerate()
+                .for_each(attn_fn);
+        } else {
+            out_data.chunks_mut(h_q * d).enumerate().for_each(attn_fn);
+        }
 
         Ok((output, weights_tensor))
     }
@@ -560,7 +703,7 @@ mod tests {
             k_proj,
             v_proj,
             o_proj,
-        );
+        )?;
 
         let x = tensor_randn([batch, seq_len, model_dim]);
         // Freqs for RoPE: [SeqLen, HeadDim/2]
@@ -611,7 +754,7 @@ mod tests {
             k_proj,
             v_proj,
             o_proj,
-        );
+        )?;
 
         let x = tensor_randn([batch, seq_len, model_dim]);
         let freqs_cos = Tensor::ones([seq_len, head_dim / 2]);
@@ -642,7 +785,8 @@ mod tests {
 
         // Mock attention struct just to access fused_rope_transpose
         // We can't easily instantiate it without valid linears, but we can make dummy ones
-        let make_dummy = || Linear::new(Tensor::new(vec![0.0], [1, 1]).unwrap(), None);
+        // Model dim is 2.
+        let make_dummy = || Linear::new(Tensor::zeros([2, 2]), None);
         let attn = OptimizedMultiHeadAttention::<f32>::new(
             num_heads,
             num_heads,
@@ -651,7 +795,7 @@ mod tests {
             make_dummy(),
             make_dummy(),
             make_dummy(),
-        );
+        )?;
 
         let out = attn.fused_rope_transpose(&x, &freqs_cos, &freqs_sin, num_heads)?;
 
@@ -692,7 +836,7 @@ mod tests {
             k_proj,
             v_proj,
             o_proj,
-        );
+        )?;
 
         let x = tensor_randn([batch, seq_len, model_dim]);
         let freqs_cos = Tensor::ones([seq_len, head_dim / 2]);

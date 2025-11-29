@@ -104,7 +104,8 @@ fn test_attention_pronoun_resolution() {
         k_proj,
         v_proj,
         o_proj,
-    );
+    )
+    .unwrap();
 
     // 3. Construct Scenarios
     // We only need to simulate the query "it" attending to the past keys.

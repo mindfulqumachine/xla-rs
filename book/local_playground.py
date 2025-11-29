@@ -31,8 +31,8 @@ class PlaygroundHandler(http.server.SimpleHTTPRequestHandler):
                 compile_cmd = [
                     'rustc', src_file,
                     '-o', exe_file,
-                    '-L', 'target/debug/deps',
-                    '--edition', '2021'
+                    '-L', '../target/debug/deps',
+                    '--edition', '2024'
                 ]
                 
                 # Check for xla_rs library to add --extern if needed, 

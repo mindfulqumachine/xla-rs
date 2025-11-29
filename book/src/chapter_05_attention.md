@@ -61,8 +61,8 @@ Let's trace the path of a simple input sequence: **"Thinking Machines"**.
 
 #### Step 1: Embeddings
 First, we convert our words into embedding vectors. Let's say our embedding dimension (\\(d_{model}\\)) is 4.
-*   **"Thinking"** \\(\rightarrow x_1 = [1.0, 0.0, 1.0, 0.0]\\)
-*   **"Machines"** \\(\rightarrow x_2 = [0.0, 1.0, 0.0, 1.0]\\)
+*   **"Thinking"** \\(\rightarrow x_1 = `[1.0, 0.0, 1.0, 0.0]`\\)
+*   **"Machines"** \\(\rightarrow x_2 = `[0.0, 1.0, 0.0, 1.0]`\\)
 
 We stack these into an input matrix $X$ of shape `[2, 4]`.
 
@@ -90,7 +90,7 @@ In practice, we don't loop through words. We use matrix multiplication to do it 
 \\( K = X \cdot W_K \\)
 \\( V = X \cdot W_V \\)
 
-If `X` is \\([2, 4]\\) and \\(W_Q\\) is `[4, 3]`, then our resulting `Q` matrix is `[2, 3]`.
+If `X` is \\(`[2, 4]`\\) and \\(W_Q\\) is `[4, 3]`, then our resulting `Q` matrix is `[2, 3]`.
 *   **Row 1 of Q**: The Query vector for "Thinking".
 *   **Row 2 of Q**: The Query vector for "Machines".
 
@@ -405,3 +405,29 @@ pub fn forward(
 ```
 
 This approach is significantly faster for generation but more complex to write and debug. By having both, we get the best of both worlds: clarity for learning and performance for running.
+
+## Performance Analysis
+
+We benchmarked the pedantic vs. optimized implementation using `criterion` and profiled the execution using `sample`.
+
+### Benchmark Results
+
+On a standard CPU workload (Batch=1, SeqLen=64, Heads=4, HeadDim=32), the optimized implementation showed a **~15% improvement** over the pedantic version, and a **~34% improvement** over the initial optimized version.
+
+| Implementation | Mean Time |
+| :--- | :--- |
+| Pedantic | 1.70 ms |
+| Optimized (Initial) | 2.20 ms |
+| Optimized (Fused QKV + Tuned) | 1.45 ms |
+
+### Profiling Insights & Optimizations
+
+Profiling revealed two key bottlenecks that we addressed:
+
+1.  **Projections Dominate**: The majority of CPU time was spent in `cpu_matmul` during the linear projections (Q, K, V).
+    *   *Optimization Implemented*: We fused Q, K, and V projections into a single linear layer (`qkv_proj`). This improved memory locality by loading the input tensor `x` only once instead of 3 times.
+
+2.  **Parallelism Overhead**: The profile showed significant time spent in `rayon_core` synchronization primitives for small workloads.
+    *   *Optimization Implemented*: We added a `PARALLEL_THRESHOLD` (4096 elements). For workloads smaller than this threshold, we switch to sequential execution to avoid the overhead of spawning threads.
+
+These optimizations reduced the execution time from 2.20 ms to 1.45 ms.

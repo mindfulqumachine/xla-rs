@@ -1,6 +1,6 @@
 # Chapter 10: Serving
 
-> [!NOTE]
+> \[!NOTE]
 > This chapter is under construction.
 
 ## Topics to Cover

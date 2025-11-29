@@ -1,6 +1,6 @@
 # Chapter 9: The Training Loop
 
-> [!NOTE]
+> \[!NOTE]
 > This chapter is under construction.
 
 ## Topics to Cover

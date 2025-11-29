@@ -53,7 +53,8 @@ fn benchmark_attention(c: &mut Criterion) {
         Linear::new(w_k.clone(), None),
         Linear::new(w_v.clone(), None),
         Linear::new(w_o.clone(), None),
-    );
+    )
+    .unwrap();
 
     let mut group = c.benchmark_group("attention");
 

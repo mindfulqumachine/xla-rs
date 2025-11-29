@@ -46,7 +46,7 @@ In `xla-rs`, we don't just want to store these numbers; we want to do it **safel
 
 ### The `Tensor` Struct
 
-Our `Tensor` struct is defined in [`src/tensor/mod.rs`](../../src/tensor/mod.rs). Notice how the definition mirrors the conceptual structure:
+Our `Tensor` struct is defined in [`src/tensor/mod.rs`](https://github.com/mindfulqumachine/xla-rs/blob/main/core/src/tensor/mod.rs). Notice how the definition mirrors the conceptual structure:
 
 ```rust
 # extern crate xla_rs;
@@ -107,7 +107,7 @@ Computer memory is fundamentally linear (one-dimensional). It's just a long stri
 
 The **stride** for a specific dimension tells us: *"How many elements do I need to skip in the flat memory array to move one step along this dimension?"*
 
-#### Example: A [2, 3] Matrix
+#### Example: A `[2, 3]` Matrix
 
 Consider a matrix with 2 rows and 3 columns:
 
@@ -124,7 +124,7 @@ In memory, this is stored as a flat vector: `[A, B, C, D, E, F]`.
 -   **Moving along rows (dimension 0)**: To go from *A* to *D*, we need to skip the entire first row (*A*, *B*, *C*). That's **3** elements. So, `strides[0] = 3`.
 
 The formula to calculate the flat index for logical index `(i, j)` is:
-$$ \texttt{flat\_index} = i \times \texttt{strides}[0] + j \times \texttt{strides}[1] $$
+$$ \texttt{flat\_index} = i \times \texttt{strides}\[0\] + j \times \texttt{strides}\[1\] $$
 
 For *E* at `(1, 1)`:
 $$ 1 \times 3 + 1 \times 1 = 4 $$
@@ -134,11 +134,11 @@ Checking our flat vector `[A, B, C, D, E, F]`, index 4 is indeed *E*.
 
 The concept extends naturally to any number of dimensions. For a tensor of shape `[d_0, d_1, ..., d_{N-1}]`, the stride for dimension `k` (`strides[k]`) is the product of the sizes of all subsequent dimensions:
 
-$$ \texttt{strides}[k] = \prod_{m=k+1}^{N-1} \texttt{shape}[m] $$
+$$ \texttt{strides}\[k\] = \prod_{m=k+1}^{N-1} \texttt{shape}\[m\] $$
 
 *(Note: The last stride `strides[N-1]` is always 1 for standard contiguous memory).*
 
-**Example: A 3D Tensor [2, 2, 3]**
+**Example: A 3D Tensor `[2, 2, 3]`**
 Shape: `[Depth=2, Rows=2, Cols=3]`
 Total elements: \\(2 \times 2 \times 3 = 12\\).
 
@@ -147,7 +147,7 @@ Total elements: \\(2 \times 2 \times 3 = 12\\).
 -   **Dimension 0 (Depth)**: Moving 1 step skips a whole 2D slice (matrix). `strides[0] = shape[1] \times shape[2] = 2 \times 3 = 6`.
 
 The flat index for logical index `(i, j, k)` is:
-$$ \texttt{flat\_index} = i \times \texttt{strides}[0] + j \times \texttt{strides}[1] + k \times \texttt{strides}[2] $$
+$$ \texttt{flat\_index} = i \times \texttt{strides}\[0\] + j \times \texttt{strides}\[1\] + k \times \texttt{strides}\[2\] $$
 $$ \texttt{flat\_index} = i \times 6 + j \times 3 + k \times 1 $$
 
 ### Hands On
