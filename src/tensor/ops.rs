@@ -176,13 +176,9 @@ where
         new_shape.swap(RANK - 1, RANK - 2);
 
         // Delegate to the kernel
-        let out_data = xla_rs_kernels::cpu_transpose(self.data.as_slice(), &self.shape).map_err(
-            |e| match e {
-                xla_rs_kernels::KernelError::ShapeMismatch { expected, got } => {
-                    TensorError::ShapeMismatch { expected, got }
-                }
-            },
-        )?;
+        // Should never fail as we validated rank and shape consistency is enforced by Tensor
+        let out_data = xla_rs_kernels::cpu_transpose(self.data.as_slice(), &self.shape)
+            .expect("Transpose kernel failed despite valid shape");
 
         let strides = crate::tensor::compute_strides(&new_shape);
         Ok(Tensor {

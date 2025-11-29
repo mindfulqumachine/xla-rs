@@ -302,10 +302,10 @@ mod tests {
         // v_proj: [KV_Dim, Hidden] -> Weight [4, 8]
         // o_proj: [Hidden, Hidden] -> Weight [8, 8]
 
-        let q_w = Tensor::new(vec![1.0; 64], [8, 8]).unwrap();
-        let k_w = Tensor::new(vec![1.0; 32], [4, 8]).unwrap();
-        let v_w = Tensor::new(vec![1.0; 32], [4, 8]).unwrap();
-        let o_w = Tensor::new(vec![1.0; 64], [8, 8]).unwrap();
+        let q_w = Tensor::new(vec![1.0; 64], [hidden_dim, hidden_dim]).unwrap();
+        let k_w = Tensor::new(vec![1.0; 32], [kv_dim, hidden_dim]).unwrap();
+        let v_w = Tensor::new(vec![1.0; 32], [kv_dim, hidden_dim]).unwrap();
+        let o_w = Tensor::new(vec![1.0; 64], [hidden_dim, hidden_dim]).unwrap();
 
         let q_proj = Linear::new(q_w, None);
         let k_proj = Linear::new(k_w, None);

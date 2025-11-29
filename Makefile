@@ -1,7 +1,7 @@
 .PHONY: build test lint book serve playground test-book clean doc doc-test serve-doc
 
 # Default target
-all: fmt build lint test test-book doc doc-test
+all: fmt build lint test test-book doc doc-test spellcheck
 
 # Rust commands
 build:

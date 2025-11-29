@@ -339,4 +339,33 @@ mod tests {
         assert!((out_data[2] - 0.0).abs() < 1e-4);
         assert!((out_data[3] - 20.0).abs() < 1e-4);
     }
+    #[test]
+    fn test_moe_unused_expert() {
+        // 2 Experts, Top-1 Routing
+        // Input: [1, 2, 2]
+        // Both tokens route to Expert 0. Expert 1 gets nothing.
+
+        let input_data = vec![1.0, 0.0, 1.0, 0.0]; // Both look like first token of previous test
+        let input = Tensor::<f32, 3, Cpu>::new(input_data, [1, 2, 2]).unwrap();
+
+        // Gate weights: Identity-like but favoring index 0 for both
+        // [1, 0]
+        // [1, 0]
+        let gate_w_data = vec![1.0, 0.0, 1.0, 0.0];
+        let gate_w = Tensor::<f32, 2, Cpu>::new(gate_w_data, [2, 2]).unwrap();
+        let gate = Linear::new(gate_w, None);
+
+        let router = TopKRouter::new(gate, 2, 1);
+
+        let experts = vec![MockExpert { id: 10 }, MockExpert { id: 20 }];
+
+        let moe = MoELayer::new(router, experts);
+
+        let output = moe.forward(&input).unwrap();
+        let out_data = output.data();
+
+        // Both should be scaled by 10 (Expert 0)
+        assert!((out_data[0] - 10.0).abs() < 1e-4);
+        assert!((out_data[2] - 10.0).abs() < 1e-4);
+    }
 }

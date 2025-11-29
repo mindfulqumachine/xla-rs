@@ -6,7 +6,10 @@ use crate::tensor::{Cpu, Tensor, TensorElem};
 /// Returns a function that takes a `Tensor` input and returns the gradient `Tensor`.
 ///
 /// # Example
-/// ```ignore
+/// ```rust
+/// use xla_rs::autograd::functional::grad;
+/// use xla_rs::tensor::Tensor;
+///
 /// let grad_square = grad(|x| x.clone() * x.clone());
 /// let g = grad_square(Tensor::new(vec![3.0], []).unwrap());
 /// // g = 6.0
