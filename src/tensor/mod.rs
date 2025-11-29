@@ -42,7 +42,7 @@ pub mod device;
 pub mod ops;
 pub mod storage;
 
-pub use device::{Cpu, Device};
+pub use device::{ConstDevice, Cpu, Device};
 pub use storage::Storage;
 
 /// Error type for Tensor operations.
@@ -125,7 +125,7 @@ impl<T> TensorElem for T where
 ///
 /// This approach aligns with the industry standard for most deep learning frameworks (like PyTorch, TensorFlow, and many Rust crates),
 /// prioritizing the flexibility required for real-world model training and inference.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Tensor<T, const RANK: usize, D: Device = Cpu>
 where
     T: TensorElem,
@@ -238,6 +238,141 @@ where
     }
 }
 
+impl<T, const RANK: usize, const N: usize> Tensor<T, RANK, ConstDevice<N>>
+where
+    T: TensorElem,
+{
+    /// Creates a new constant Tensor from an array.
+    ///
+    /// This function is `const`, allowing tensors to be defined at compile time.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The array containing the tensor elements.
+    /// * `shape` - The shape of the tensor.
+    ///
+    /// # Panics
+    ///
+    /// Panics at compile time if the number of elements in `data` (N) does not match the product of `shape`.
+    pub const fn new_const(data: [T; N], shape: [usize; RANK]) -> Self {
+        let mut size = 1;
+        let mut i = 0;
+        while i < RANK {
+            size *= shape[i];
+            i += 1;
+        }
+
+        assert!(
+            N == size,
+            "Shape mismatch: data length does not match shape product"
+        );
+
+        let strides = compute_strides(&shape);
+        Self {
+            shape,
+            strides,
+            data,
+            device: ConstDevice,
+        }
+    }
+
+    /// Reshapes the tensor to a new shape.
+    ///
+    /// This is a `const` operation for `ConstDevice`.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_shape` - The target shape.
+    ///
+    /// # Panics
+    ///
+    /// Panics at compile time if the number of elements in `new_shape` does not match the current size.
+    pub const fn reshape<const NEW_RANK: usize>(
+        self,
+        new_shape: [usize; NEW_RANK],
+    ) -> Tensor<T, NEW_RANK, ConstDevice<N>> {
+        let mut new_size = 1;
+        let mut i = 0;
+        while i < NEW_RANK {
+            new_size *= new_shape[i];
+            i += 1;
+        }
+
+        assert!(
+            N == new_size,
+            "Shape mismatch: new shape size does not match tensor size"
+        );
+
+        let strides = compute_strides(&new_shape);
+        Tensor {
+            shape: new_shape,
+            strides,
+            data: self.data,
+            device: ConstDevice,
+        }
+    }
+
+    /// Transposes the tensor.
+    ///
+    /// Swaps the last two dimensions.
+    /// This is a `const` operation for `ConstDevice`.
+    ///
+    /// # Panics
+    ///
+    /// Panics at compile time if rank < 2.
+    pub const fn transpose(self) -> Self {
+        assert!(RANK >= 2, "Transpose requires rank >= 2");
+
+        let mut new_shape = self.shape;
+        // Swap last two dims
+        let tmp = new_shape[RANK - 1];
+        new_shape[RANK - 1] = new_shape[RANK - 2];
+        new_shape[RANK - 2] = tmp;
+
+        let new_strides = compute_strides(&new_shape);
+        let mut new_data = [self.data[0]; N]; // Initialize with dummy value, will be overwritten
+
+        // We need to iterate over all elements, compute their multi-dim index in original shape,
+        // swap the last two indices, and compute the linear index in the new shape.
+        let mut i = 0;
+        while i < N {
+            // 1. Linear index `i` -> Multi-dim index `coords`
+            let mut coords = [0; RANK];
+            let mut rem = i;
+            let mut d = 0;
+            while d < RANK {
+                coords[d] = rem / self.strides[d];
+                rem %= self.strides[d];
+                d += 1;
+            }
+
+            // 2. Swap last two coords
+            let tmp_coord = coords[RANK - 1];
+            coords[RANK - 1] = coords[RANK - 2];
+            coords[RANK - 2] = tmp_coord;
+
+            // 3. Multi-dim index `coords` -> Linear index `j` (using new_strides)
+            let mut j = 0;
+            let mut k = 0;
+            while k < RANK {
+                j += coords[k] * new_strides[k];
+                k += 1;
+            }
+
+            // 4. Copy data
+            new_data[j] = self.data[i];
+            i += 1;
+        }
+
+        Tensor {
+            shape: new_shape,
+            strides: new_strides,
+            data: new_data,
+            device: ConstDevice,
+        }
+    }
+}
+
 /// Computes the strides for a given shape.
 ///
 /// Strides represent the number of elements to skip in memory to move to the next element
@@ -250,10 +385,12 @@ where
 /// # Returns
 ///
 /// An array of strides corresponding to the input shape.
-fn compute_strides<const RANK: usize>(shape: &[usize; RANK]) -> [usize; RANK] {
+const fn compute_strides<const RANK: usize>(shape: &[usize; RANK]) -> [usize; RANK] {
     let mut strides = [0; RANK];
     let mut stride = 1;
-    for i in (0..RANK).rev() {
+    let mut i = RANK;
+    while i > 0 {
+        i -= 1;
         strides[i] = stride;
         stride *= shape[i];
     }
@@ -267,7 +404,7 @@ where
     /// Returns the shape of the tensor.
     ///
     /// The shape is an array of length `RANK` representing the size of each dimension.
-    pub fn shape(&self) -> &[usize; RANK] {
+    pub const fn shape(&self) -> &[usize; RANK] {
         &self.shape
     }
 
@@ -275,7 +412,7 @@ where
     ///
     /// Strides represent the number of elements to skip in memory to move to the next element
     /// along a specific dimension.
-    pub fn strides(&self) -> &[usize; RANK] {
+    pub const fn strides(&self) -> &[usize; RANK] {
         &self.strides
     }
 
@@ -297,8 +434,14 @@ where
     /// Returns the total number of elements in the tensor.
     ///
     /// This is equal to the product of the dimensions in the shape.
-    pub fn size(&self) -> usize {
-        self.shape.iter().product()
+    pub const fn size(&self) -> usize {
+        let mut size = 1;
+        let mut i = 0;
+        while i < RANK {
+            size *= self.shape[i];
+            i += 1;
+        }
+        size
     }
 }
 
@@ -511,5 +654,56 @@ mod tests {
         assert!(debug_str.contains("shape"));
         assert!(debug_str.contains("device"));
         assert!(debug_str.contains("CPU"));
+    }
+
+    #[test]
+    fn test_const_tensor() {
+        const DATA: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
+        const SHAPE: [usize; 2] = [2, 2];
+        const T: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const(DATA, SHAPE);
+
+        assert_eq!(T.shape(), &[2, 2]);
+        assert_eq!(T.size(), 4);
+        assert_eq!(T.data(), &DATA);
+        assert_eq!(T.strides(), &[2, 1]);
+    }
+
+    #[test]
+    fn test_const_ops() {
+        const DATA: [f32; 6] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        const T: Tensor<f32, 2, ConstDevice<6>> = Tensor::new_const(DATA, [2, 3]);
+
+        // Test Reshape
+        const T_RESHAPED: Tensor<f32, 3, ConstDevice<6>> = T.reshape([3, 2, 1]);
+        assert_eq!(T_RESHAPED.shape(), &[3, 2, 1]);
+        assert_eq!(T_RESHAPED.data(), &DATA);
+
+        // Test Transpose
+        // [1 2 3]
+        // [4 5 6]
+        // ->
+        // [1 4]
+        // [2 5]
+        // [3 6]
+        const T_TRANSPOSED: Tensor<f32, 2, ConstDevice<6>> = T.transpose();
+        assert_eq!(T_TRANSPOSED.shape(), &[3, 2]);
+        assert_eq!(T_TRANSPOSED.data(), &[1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
+    }
+
+    #[test]
+    fn test_conflict_check() {
+        // This test checks if we can call methods on ConstDevice in a non-const context.
+        // If the generic impl applies, it might conflict or fail.
+        let data = [1.0, 2.0, 3.0, 4.0];
+        let t = Tensor::new_const(data, [2, 2]);
+
+        // This calls the const implementation (inherent method)
+        let t_t = t.transpose();
+        assert_eq!(t_t.data(), &[1.0, 3.0, 2.0, 4.0]);
+
+        // If we try to use a method that is ONLY in the generic impl but fails for ConstDevice?
+        // e.g. matmul calls cpu_matmul which returns Vec.
+        // let t2 = t.matmul(&t);
+        // This would likely fail to compile if instantiated.
     }
 }

@@ -63,6 +63,18 @@ impl<T: TensorElem> Storage<T> for Vec<T> {
     }
 }
 
+impl<T: TensorElem, const N: usize> Storage<T> for [T; N] {
+    fn as_slice(&self) -> &[T] {
+        self
+    }
+    fn as_mut_slice(&mut self) -> &mut [T] {
+        self
+    }
+    fn len(&self) -> usize {
+        N
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

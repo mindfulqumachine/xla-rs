@@ -39,12 +39,12 @@
 macro_rules! tensor {
     ($data:expr, $shape:expr) => {{
         // Constants to force compile-time evaluation
-        const DATA_LEN: usize = $data.len();
-        const SHAPE: [usize; $shape.len()] = $shape;
+        const DATA_LEN: usize = (&$data as &[_]).len();
+        const SHAPE: [usize; (&$shape as &[_]).len()] = $shape;
         const EXPECTED_SIZE: usize = {
             let mut size = 1;
             let mut i = 0;
-            while i < SHAPE.len() {
+            while i < (&SHAPE as &[_]).len() {
                 size *= SHAPE[i];
                 i += 1;
             }

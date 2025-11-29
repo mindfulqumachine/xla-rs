@@ -69,6 +69,23 @@ impl Device for Cpu {
     }
 }
 
+/// A Device for compile-time constants.
+///
+/// Stores data in a fixed-size array `[T; N]`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ConstDevice<const N: usize>;
+
+impl<const N: usize> Device for ConstDevice<N> {
+    type Storage<T>
+        = [T; N]
+    where
+        T: TensorElem;
+
+    fn name(&self) -> &'static str {
+        "ConstDevice"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
