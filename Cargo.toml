@@ -6,7 +6,14 @@ description = "A pure Rust implementation of LLM building blocks and tensors."
 license = "MIT"
 repository = "https://github.com/mindfulqumachine/xla-rs"
 documentation = "https://mindfulqumachine.github.io/xla-rs/book/"
-readme = "README.md"
+
+[features]
+default = []
+# Feature to include pre-built model architectures (e.g. Gemma).
+# Gated to reduce compilation time for users who only need core tensor operations.
+models = []
+
+
 
 [workspace]
 members = ["kernels"]
@@ -18,6 +25,16 @@ rand = "0.9.2"
 rayon = "1.11.0"
 thiserror = "2.0.17"
 xla-rs-kernels = { path = "kernels" }
+const_soft_float = "0.1.4"
 
 [dev-dependencies]
 doc-comment = "0.3.4"
+criterion = "0.5.1"
+
+[[bench]]
+name = "transpose_benchmark"
+harness = false
+
+[[bench]]
+name = "matmul_benchmark"
+harness = false

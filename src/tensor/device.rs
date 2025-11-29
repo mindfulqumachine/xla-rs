@@ -43,6 +43,17 @@ pub trait Device: Clone + Debug + PartialEq + Send + Sync {
     /// assert_eq!(device.name(), "CPU");
     /// ```
     fn name(&self) -> &'static str;
+
+    /// Transposes the data.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The data to transpose.
+    /// * `shape` - The shape of the tensor.
+    fn transpose<T: TensorElem, const RANK: usize>(
+        data: &Self::Storage<T>,
+        shape: &[usize; RANK],
+    ) -> crate::tensor::Result<Self::Storage<T>>;
 }
 
 /// A CPU Device.
@@ -67,6 +78,22 @@ impl Device for Cpu {
     fn name(&self) -> &'static str {
         "CPU"
     }
+
+    fn transpose<T: TensorElem, const RANK: usize>(
+        data: &Self::Storage<T>,
+        shape: &[usize; RANK],
+    ) -> crate::tensor::Result<Self::Storage<T>> {
+        if RANK < 2 {
+            return Err(crate::tensor::TensorError::Unsupported(
+                "Transpose requires rank >= 2".into(),
+            ));
+        }
+        xla_rs_kernels::cpu_transpose(data, shape).map_err(|e| match e {
+            xla_rs_kernels::KernelError::ShapeMismatch { expected, got } => {
+                crate::tensor::TensorError::ShapeMismatch { expected, got }
+            }
+        })
+    }
 }
 
 /// A Device for compile-time constants.
@@ -83,6 +110,49 @@ impl<const N: usize> Device for ConstDevice<N> {
 
     fn name(&self) -> &'static str {
         "ConstDevice"
+    }
+
+    fn transpose<T: TensorElem, const RANK: usize>(
+        data: &Self::Storage<T>,
+        shape: &[usize; RANK],
+    ) -> crate::tensor::Result<Self::Storage<T>> {
+        if RANK < 2 {
+            return Err(crate::tensor::TensorError::Unsupported(
+                "Transpose requires rank >= 2".into(),
+            ));
+        }
+
+        let mut new_shape = *shape;
+        new_shape.swap(RANK - 1, RANK - 2);
+        let new_strides = crate::tensor::compute_strides(&new_shape);
+        let strides = crate::tensor::compute_strides(shape);
+
+        let mut new_data = [T::zero(); N];
+
+        let mut i = 0;
+        while i < N {
+            let mut coords = [0; RANK];
+            let mut rem = i;
+            let mut d = 0;
+            while d < RANK {
+                coords[d] = rem / strides[d];
+                rem %= strides[d];
+                d += 1;
+            }
+
+            coords.swap(RANK - 1, RANK - 2);
+
+            let mut j = 0;
+            let mut k = 0;
+            while k < RANK {
+                j += coords[k] * new_strides[k];
+                k += 1;
+            }
+
+            new_data[j] = data[i];
+            i += 1;
+        }
+        Ok(new_data)
     }
 }
 

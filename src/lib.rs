@@ -9,7 +9,7 @@
 //!
 //! - [`mod@tensor`]: Core N-dimensional tensor implementation.
 //! - [`nn`]: Neural network layers (Linear, RMSNorm, MoE, etc.).
-//! - [`models`]: Model architectures (e.g., Gemma).
+//! - `models`: Model architectures (e.g., Gemma) (requires `models` feature).
 //!
 //! ## Example
 //!
@@ -19,6 +19,12 @@
 //! let data = vec![1.0, 2.0, 3.0, 4.0];
 //! let tensor = Tensor::<f32, 2>::new(data, [2, 2]).unwrap();
 //! println!("{:?}", tensor);
+//!
+//! // Zero-overhead compile-time operations
+//! use xla_rs::tensor::ConstDevice;
+//!
+//! const A: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const([1.0, 2.0, 3.0, 4.0], [2, 2]);
+//! const B: Tensor<f32, 2, ConstDevice<4>> = A.transpose(); // Evaluated at compile time!
 //! ```
 
 /// Macro for creating a Tensor with compile-time shape checking.
@@ -63,8 +69,10 @@ macro_rules! tensor {
 }
 
 pub mod autograd;
+pub use autograd::Variable;
+pub use tensor::{ConstDevice, Cpu, Device, Storage, Tensor, TensorElem, TensorError, TensorOps};
+
+#[cfg(feature = "models")]
 pub mod models;
 pub mod nn;
 pub mod tensor;
-
-pub use tensor::Tensor;

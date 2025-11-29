@@ -1,6 +1,6 @@
 use super::rope::apply_rope;
 use crate::nn::Linear;
-use crate::tensor::{Cpu, Result, Tensor, TensorElem};
+use crate::tensor::{Cpu, Result, Tensor, TensorElem, TensorOps};
 use num_traits::Float;
 use rayon::prelude::*;
 

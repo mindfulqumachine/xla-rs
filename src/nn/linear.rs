@@ -1,4 +1,4 @@
-use crate::tensor::{Cpu, Result, Tensor, TensorElem};
+use crate::tensor::{Cpu, Tensor, TensorElem, TensorOps};
 
 use rayon::prelude::*;
 
@@ -93,7 +93,7 @@ impl<T: TensorElem> Linear<T> {
     pub fn forward<const RANK: usize>(
         &self,
         x: &Tensor<T, RANK, Cpu>,
-    ) -> Result<Tensor<T, RANK, Cpu>>
+    ) -> crate::tensor::Result<Tensor<T, RANK, Cpu>>
     where
         (): AllowedLinearRank<RANK>,
     {
@@ -162,7 +162,10 @@ impl<T: TensorElem> Linear<T> {
     }
 
     /// Helper to add bias to a 2D tensor.
-    fn add_bias(x: &Tensor<T, 2, Cpu>, bias: &Tensor<T, 1, Cpu>) -> Result<Tensor<T, 2, Cpu>> {
+    fn add_bias(
+        x: &Tensor<T, 2, Cpu>,
+        bias: &Tensor<T, 1, Cpu>,
+    ) -> crate::tensor::Result<Tensor<T, 2>> {
         let [_, cols] = *x.shape();
         let [b_cols] = *bias.shape();
 

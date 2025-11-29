@@ -38,11 +38,13 @@ use num_traits::{FromPrimitive, Num, NumAssign, ToPrimitive};
 use std::fmt::Debug;
 use thiserror::Error;
 
+pub mod const_ops;
 pub mod device;
 pub mod ops;
 pub mod storage;
 
 pub use device::{ConstDevice, Cpu, Device};
+pub use ops::TensorOps;
 pub use storage::Storage;
 
 /// Error type for Tensor operations.
@@ -373,6 +375,84 @@ where
     }
 }
 
+impl<const N: usize> Tensor<f32, 2, ConstDevice<N>> {
+    /// Performs matrix multiplication at compile time.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - The right-hand side tensor.
+    ///
+    /// # Returns
+    ///
+    /// A new tensor resulting from the matrix multiplication.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `N2`: The size (number of elements) of the `rhs` tensor.
+    /// * `OUT_N`: The size (number of elements) of the output tensor.
+    ///
+    /// # Panics
+    ///
+    /// Panics at compile time (or runtime if called there) if shapes are incompatible
+    /// or if the provided `OUT_N` does not match the expected output size.
+    pub const fn matmul<const N2: usize, const OUT_N: usize>(
+        &self,
+        rhs: &Tensor<f32, 2, ConstDevice<N2>>,
+    ) -> Tensor<f32, 2, ConstDevice<OUT_N>> {
+        let dim0 = self.shape[0];
+        let dim1 = self.shape[1];
+        let rhs_dim0 = rhs.shape[0];
+        let rhs_dim1 = rhs.shape[1];
+
+        if dim1 != rhs_dim0 {
+            panic!("Shape mismatch for matmul");
+        }
+        if dim0 * rhs_dim1 != OUT_N {
+            panic!("Output size mismatch");
+        }
+
+        let mut new_data = [0.0; OUT_N];
+        let mut i = 0;
+        while i < dim0 {
+            let mut j = 0;
+            while j < rhs_dim1 {
+                let mut sum = 0.0;
+                let mut k = 0;
+                while k < dim1 {
+                    // self[i, k]
+                    let idx_a = i * self.strides[0] + k * self.strides[1];
+                    // rhs[k, j]
+                    let idx_b = k * rhs.strides[0] + j * rhs.strides[1];
+
+                    let val_a = self.data[idx_a];
+                    let val_b = rhs.data[idx_b];
+
+                    // sum += val_a * val_b
+                    sum = crate::tensor::const_ops::const_f32_add(
+                        sum,
+                        crate::tensor::const_ops::const_f32_mul(val_a, val_b),
+                    );
+
+                    k += 1;
+                }
+                new_data[i * rhs_dim1 + j] = sum;
+                j += 1;
+            }
+            i += 1;
+        }
+
+        let new_shape = [dim0, rhs_dim1];
+        let strides = compute_strides(&new_shape);
+
+        Tensor {
+            shape: new_shape,
+            strides,
+            data: new_data,
+            device: ConstDevice,
+        }
+    }
+}
+
 /// Computes the strides for a given shape.
 ///
 /// Strides represent the number of elements to skip in memory to move to the next element
@@ -655,7 +735,31 @@ mod tests {
         assert!(debug_str.contains("device"));
         assert!(debug_str.contains("CPU"));
     }
+    #[test]
+    fn test_const_matmul() {
+        // A: [2, 3]
+        // 1 2 3
+        // 4 5 6
+        const A: Tensor<f32, 2, ConstDevice<6>> =
+            Tensor::new_const([1.0, 2.0, 3.0, 4.0, 5.0, 6.0], [2, 3]);
 
+        // B: [3, 2]
+        // 7 8
+        // 9 10
+        // 11 12
+        const B: Tensor<f32, 2, ConstDevice<6>> =
+            Tensor::new_const([7.0, 8.0, 9.0, 10.0, 11.0, 12.0], [3, 2]);
+
+        // C = A @ B: [2, 2]
+        // 1*7 + 2*9 + 3*11 = 7 + 18 + 33 = 58
+        // 1*8 + 2*10 + 3*12 = 8 + 20 + 36 = 64
+        // 4*7 + 5*9 + 6*11 = 28 + 45 + 66 = 139
+        // 4*8 + 5*10 + 6*12 = 32 + 50 + 72 = 154
+        const C: Tensor<f32, 2, ConstDevice<4>> = A.matmul(&B);
+
+        assert_eq!(C.shape(), &[2, 2]);
+        assert_eq!(C.data(), &[58.0, 64.0, 139.0, 154.0]);
+    }
     #[test]
     fn test_const_tensor() {
         const DATA: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
@@ -705,5 +809,33 @@ mod tests {
         // e.g. matmul calls cpu_matmul which returns Vec.
         // let t2 = t.matmul(&t);
         // This would likely fail to compile if instantiated.
+    }
+    #[test]
+    fn test_generic_transpose() {
+        use crate::tensor::ops::TensorOps;
+
+        fn generic_transpose<T: TensorElem, const RANK: usize, D: Device>(
+            t: &Tensor<T, RANK, D>,
+        ) -> crate::tensor::Result<Tensor<T, RANK, D>>
+        where
+            Tensor<T, RANK, D>: TensorOps<T, RANK, Device = D>,
+        {
+            t.transpose()
+        }
+
+        // Test CPU
+        let t_cpu: Tensor<f32, 2> =
+            Tensor::<f32, 2>::new(vec![1.0, 2.0, 3.0, 4.0], [2, 2]).unwrap();
+        let t_cpu_res = generic_transpose(&t_cpu);
+        let t_cpu_t = t_cpu_res.unwrap();
+        assert_eq!(t_cpu_t.shape(), &[2, 2]);
+        assert_eq!(t_cpu_t.data(), &[1.0, 3.0, 2.0, 4.0]);
+
+        // Test ConstDevice
+        let t_const = Tensor::new_const([1.0, 2.0, 3.0, 4.0], [2, 2]);
+        let t_const_res = generic_transpose(&t_const);
+        let t_const_t = t_const_res.unwrap();
+        assert_eq!(t_const_t.shape(), &[2, 2]);
+        assert_eq!(t_const_t.data(), &[1.0, 3.0, 2.0, 4.0]);
     }
 }

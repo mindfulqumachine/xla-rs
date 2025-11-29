@@ -4,7 +4,8 @@
 //! element-wise arithmetic (Add, Sub, Mul, Div), matrix multiplication, and broadcasting.
 //! It uses `rayon` for parallel execution on the CPU.
 
-use super::{Cpu, Result, Tensor, TensorElem, TensorError};
+use super::{Cpu, Device, Result, Tensor, TensorElem, TensorError};
+
 use rayon::prelude::*;
 use std::ops::{Add, Div, Mul, Sub};
 
@@ -23,7 +24,7 @@ macro_rules! impl_bin_op {
         where
             T: TensorElem,
         {
-            type Output = Result<Tensor<T, RANK, Cpu>>;
+            type Output = crate::tensor::Result<Tensor<T, RANK, Cpu>>;
 
             fn $method(self, rhs: Self) -> Self::Output {
                 if self.shape != rhs.shape {
@@ -54,6 +55,52 @@ impl_bin_op!(Add, add);
 impl_bin_op!(Sub, sub);
 impl_bin_op!(Mul, mul);
 impl_bin_op!(Div, div);
+
+/// Trait for Tensor operations that depend on the device implementation.
+///
+/// This allows generic code to use operations like `transpose` regardless of the device.
+pub trait TensorOps<T: TensorElem, const RANK: usize> {
+    /// Transposes the tensor.
+    fn transpose(&self) -> Result<Tensor<T, RANK, <Self as HasDevice>::Device>>
+    where
+        Self: HasDevice,
+        <Self as HasDevice>::Device: Device;
+
+    type Device;
+}
+
+/// Helper trait to access the device type.
+pub trait HasDevice {
+    type Device;
+}
+
+impl<T: TensorElem, const RANK: usize, D: Device> HasDevice for Tensor<T, RANK, D> {
+    type Device = D;
+}
+
+impl<T, const RANK: usize, D: Device> TensorOps<T, RANK> for Tensor<T, RANK, D>
+where
+    T: TensorElem,
+{
+    type Device = D;
+
+    fn transpose(&self) -> Result<Tensor<T, RANK, <Self as HasDevice>::Device>> {
+        let out_data = D::transpose(&self.data, &self.shape)?;
+
+        let mut new_shape = self.shape;
+        if RANK >= 2 {
+            new_shape.swap(RANK - 1, RANK - 2);
+        }
+
+        let strides = crate::tensor::compute_strides(&new_shape);
+        Ok(Tensor {
+            shape: new_shape,
+            strides,
+            data: out_data,
+            device: self.device.clone(),
+        })
+    }
+}
 
 impl<T, const RANK: usize> Tensor<T, RANK, Cpu>
 where
@@ -150,39 +197,6 @@ where
         let strides = crate::tensor::compute_strides(&out_shape);
         Ok(Tensor {
             shape: out_shape,
-            strides,
-            data: out_data,
-            device: Cpu,
-        })
-    }
-
-    /// Transposes the tensor.
-    ///
-    /// Swaps the last two dimensions.
-    /// - For 2D tensors (matrices), this is a standard matrix transpose.
-    /// - For N-D tensors, it swaps the last two axes (e.g., [B, M, N] -> [B, N, M]).
-    ///
-    /// # Errors
-    ///
-    /// Returns `TensorError::Unsupported` if the tensor rank is less than 2.
-    pub fn transpose(&self) -> Result<Self> {
-        if RANK < 2 {
-            return Err(TensorError::Unsupported(
-                "Transpose requires rank >= 2".into(),
-            ));
-        }
-
-        let mut new_shape = self.shape;
-        new_shape.swap(RANK - 1, RANK - 2);
-
-        // Delegate to the kernel
-        // Should never fail as we validated rank and shape consistency is enforced by Tensor
-        let out_data = xla_rs_kernels::cpu_transpose(self.data.as_slice(), &self.shape)
-            .expect("Transpose kernel failed despite valid shape");
-
-        let strides = crate::tensor::compute_strides(&new_shape);
-        Ok(Tensor {
-            shape: new_shape,
             strides,
             data: out_data,
             device: Cpu,

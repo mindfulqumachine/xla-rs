@@ -46,6 +46,7 @@
 - **Autograd**: Define-by-Run automatic differentiation.
 - **Neural Networks**: Linear, RMSNorm, RoPE, Attention, MoE.
 - **Gemma**: Full implementation of the Gemma architecture.
+- **Zero-Overhead Const Operations**: Perform complex tensor operations like `transpose` and `matmul` entirely at compile time using `ConstDevice`.
 
 ## Roadmap
 

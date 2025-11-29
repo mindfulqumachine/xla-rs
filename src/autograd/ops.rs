@@ -4,7 +4,7 @@
 //! (Add, Mul, MatMul) and implements the `backward` pass for each.
 
 use super::{GraphNode, Variable};
-use crate::tensor::{Cpu, Tensor, TensorElem};
+use crate::tensor::{Cpu, Tensor, TensorElem, TensorOps};
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::ops::{Add, Mul};

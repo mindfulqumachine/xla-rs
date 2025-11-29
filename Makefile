@@ -49,7 +49,7 @@ playground:
 
 test-book: build
 	cargo clean -p xla_rs
-	cargo build
+	cargo build --features models
 	@echo "Running mdbook tests..."
 	mdbook test -L target/debug/deps book
 
