@@ -129,6 +129,49 @@ impl Linear {
 }
 ```
 
+### Optimizing Operations
+
+In the `forward` method above, we compute `x.matmul(&self.weight)`.
+
+Mathematically, a linear layer is $y = xA^T + b$.
+-   $x$: Input `[Batch, In]`
+-   $A$: Weights `[Out, In]`
+-   $A^T$: Transposed Weights `[In, Out]`
+
+The matrix multiplication $x \times A^T$ results in `[Batch, Out]`.
+
+#### Inference Optimization
+
+For training, we need `Variable`s to track gradients. But for **inference** (running the model after training), the weights are fixed.
+
+We can optimize this by using `ConstDevice` for the weights.
+
+1.  **Const Weights**: Store weights as `const Tensor`.
+2.  **Pre-computed Transpose**: Instead of transposing $A$ every time we run the model (or relying on the matmul kernel to handle it), we can compute $A^T$ at **compile time**.
+
+```rust
+# extern crate xla_rs;
+use xla_rs::tensor::{Tensor, ConstDevice};
+
+// Define weights as constants
+const WEIGHTS: Tensor<f32, 2, ConstDevice<8>> = Tensor::new_const(
+    [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8], 
+    [2, 4] // [Out, In]
+);
+
+// Pre-compute the transpose at compile time!
+const WEIGHTS_T: Tensor<f32, 2, ConstDevice<8>> = WEIGHTS.transpose();
+
+fn inference(x: &Tensor<f32, 2>) -> Tensor<f32, 2> {
+    // Convert const weights to Cpu tensor for runtime use.
+    // The transpose was still done at compile time!
+    let w_cpu = Tensor::new(WEIGHTS_T.data().to_vec(), *WEIGHTS_T.shape()).unwrap();
+    x.matmul(&w_cpu).unwrap()
+}
+```
+
+This "Zero-Overhead" approach is a key advantage of using Rust's advanced type system and const evaluation capabilities.
+
 ## Activation Functions
 
 To solve non-linear problems (like XOR), we need non-linear activation functions. A common choice is the Sigmoid function:

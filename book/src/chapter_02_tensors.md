@@ -176,6 +176,50 @@ fn main() {
 }
 ```
 
+### Compile-Time Tensors
+
+One of the unique features of `xla-rs` is the ability to create and manipulate tensors entirely at compile time. This is powered by the `ConstDevice`.
+
+#### Zero-Overhead Creation
+
+You can define tensors as `const` variables. The data is embedded directly into the binary, requiring no runtime allocation or initialization.
+
+```rust
+# extern crate xla_rs;
+use xla_rs::tensor::{Tensor, ConstDevice};
+
+fn main() {
+    // A 2x2 matrix created at compile time
+    const A: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const(
+        [1.0, 2.0, 3.0, 4.0], 
+        [2, 2]
+    );
+    
+    println!("Const Tensor: {:?}", A);
+}
+```
+
+#### Compile-Time Operations
+
+Operations like `transpose` and `matmul` can also be performed at compile time. This means the complex calculations happen during the build process, and the runtime program simply loads the pre-computed result from memory.
+
+```rust
+# extern crate xla_rs;
+use xla_rs::tensor::{Tensor, ConstDevice};
+
+fn main() {
+    const A: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const([1.0, 2.0, 3.0, 4.0], [2, 2]);
+    
+    // Transpose is computed by the compiler!
+    // Runtime cost: 0 (just memory access)
+    const B: Tensor<f32, 2, ConstDevice<4>> = A.transpose();
+    
+    println!("Transposed: {:?}", B);
+}
+```
+
+This is particularly useful for inference-only models where weights are fixed. We can pre-compute transformations (like transposing weight matrices) so the device doesn't have to do it at runtime.
+
 #### Compile-Time Safety
 
 Because of `const RANK`, if you try to treat a 2D tensor as 3D without explicit reshaping, the compiler will stop you.
