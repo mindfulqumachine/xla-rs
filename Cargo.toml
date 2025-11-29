@@ -38,3 +38,7 @@ harness = false
 [[bench]]
 name = "matmul_benchmark"
 harness = false
+
+[[bench]]
+name = "attention_benchmark"
+harness = false

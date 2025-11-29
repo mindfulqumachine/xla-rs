@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 400">
+  <!-- Definitions for markers -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="white"/>
+
+  <!-- Coordinate System -->
+  <g transform="translate(50, 350)">
+    <!-- Axes -->
+    <line x1="0" y1="0" x2="400" y2="0" stroke="#ccc" stroke-width="2"/>
+    <line x1="0" y1="0" x2="0" y2="-300" stroke="#ccc" stroke-width="2"/>
+    
+    <!-- Vector m (Position m, angle m*theta) - Let's say 30 degrees -->
+    <g transform="rotate(-30)">
+      <line x1="0" y1="0" x2="250" y2="0" stroke="#2196F3" stroke-width="3" marker-end="url(#arrowhead)"/>
+      <text x="260" y="5" fill="#2196F3" font-family="sans-serif" font-size="16" transform="rotate(30, 260, 5)">Vector at pos m</text>
+    </g>
+
+    <!-- Vector n (Position n, angle n*theta) - Let's say 70 degrees -->
+    <g transform="rotate(-70)">
+      <line x1="0" y1="0" x2="250" y2="0" stroke="#E91E63" stroke-width="3" marker-end="url(#arrowhead)"/>
+      <text x="260" y="5" fill="#E91E63" font-family="sans-serif" font-size="16" transform="rotate(70, 260, 5)">Vector at pos n</text>
+    </g>
+
+    <!-- Arc for m*theta -->
+    <path d="M 100 0 A 100 100 0 0 0 86.6 -50" stroke="#2196F3" stroke-width="1" fill="none" stroke-dasharray="4"/>
+    <text x="110" y="-20" fill="#2196F3" font-family="sans-serif" font-size="14">mθ</text>
+
+    <!-- Arc for n*theta -->
+    <path d="M 120 0 A 120 120 0 0 0 41 -112.7" stroke="#E91E63" stroke-width="1" fill="none" stroke-dasharray="4"/>
+    <text x="90" y="-120" fill="#E91E63" font-family="sans-serif" font-size="14">nθ</text>
+
+    <!-- Relative Angle Arc -->
+    <!-- From 30 deg to 70 deg -->
+    <path d="M 173.2 -100 A 200 200 0 0 0 68.4 -187.9" stroke="#9C27B0" stroke-width="2" fill="none"/>
+    <text x="180" y="-150" fill="#9C27B0" font-family="sans-serif" font-size="16" font-weight="bold">Relative Rotation: (n-m)θ</text>
+    
+  </g>
+  
+  <!-- Title -->
+  <text x="250" y="30" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="bold" fill="#333">Rotary Positional Embeddings (RoPE)</text>
+  <text x="250" y="55" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#666">Rotation depends on absolute position, but relative angle depends only on distance.</text>
+</svg>
