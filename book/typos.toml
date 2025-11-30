@@ -1,2 +1,0 @@
-[files]
-extend-exclude = ["book/mermaid.min.js", "book/mermaid-init.js", "*.html", "target/**", "*.png", "*.png"]
