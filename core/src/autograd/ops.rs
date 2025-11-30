@@ -7,7 +7,7 @@ use super::{GraphNode, Variable};
 use crate::tensor::{Cpu, Tensor, TensorElem, TensorOps};
 use std::cell::RefCell;
 use std::fmt::Debug;
-use std::ops::{Add, Mul};
+use std::ops::{Add, Div, Mul, Sub};
 use std::rc::Rc;
 
 // --- Add Node ---
@@ -91,6 +91,84 @@ impl<T: TensorElem + 'static, const RANK: usize> Add for Variable<T, RANK> {
                      // If lhs is leaf, it has no parent node.
                      // But topological sort needs to traverse.
                      // If leaf has no node, traversal stops there. Correct.
+        });
+
+        Variable {
+            data,
+            grad: out_grad,
+            node: Some(node),
+        }
+    }
+}
+// --- Sub Node ---
+/// A node representing element-wise subtraction in the computation graph.
+#[derive(Debug)]
+struct SubNode<T: TensorElem, const RANK: usize> {
+    lhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    rhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    out_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    parents: Vec<Rc<dyn GraphNode>>,
+}
+
+impl<T: TensorElem, const RANK: usize> GraphNode for SubNode<T, RANK> {
+    fn backward(&self) {
+        if let Some(grad) = self.out_grad.borrow().as_ref() {
+            // d(x-y)/dx = 1 * grad
+            // d(x-y)/dy = -1 * grad
+
+            {
+                let mut lhs = self.lhs_grad.borrow_mut();
+                if let Some(l) = lhs.as_mut() {
+                    *l = (l.add(grad)).unwrap();
+                } else {
+                    *lhs = Some(grad.clone());
+                }
+            }
+
+            {
+                let mut rhs = self.rhs_grad.borrow_mut();
+                // grad * -1
+                // We don't have neg() yet, so 0 - grad? Or grad * -1.
+                // T::one().neg() might not exist for all T.
+                // 0 - grad is safe.
+                let zero = Tensor::zeros(*grad.shape());
+                let neg_grad = (zero.sub(grad)).unwrap();
+
+                if let Some(r) = rhs.as_mut() {
+                    *r = (r.add(&neg_grad)).unwrap();
+                } else {
+                    *rhs = Some(neg_grad);
+                }
+            }
+        }
+    }
+
+    fn parents(&self) -> Vec<Rc<dyn GraphNode>> {
+        self.parents.clone()
+    }
+}
+
+impl<T: TensorElem + 'static, const RANK: usize> Sub for Variable<T, RANK> {
+    type Output = Variable<T, RANK>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let data = (&self.data - &rhs.data).unwrap();
+
+        let mut parents = Vec::new();
+        if let Some(p) = &self.node {
+            parents.push(p.clone());
+        }
+        if let Some(p) = &rhs.node {
+            parents.push(p.clone());
+        }
+
+        let out_grad = Rc::new(RefCell::new(None));
+
+        let node = Rc::new(SubNode {
+            lhs_grad: self.grad.clone(),
+            rhs_grad: rhs.grad.clone(),
+            out_grad: out_grad.clone(),
+            parents,
         });
 
         Variable {
@@ -189,9 +267,94 @@ impl<T: TensorElem + 'static, const RANK: usize> Mul for Variable<T, RANK> {
         }
     }
 }
+// --- Div Node ---
+/// A node representing element-wise division in the computation graph.
+#[derive(Debug)]
+struct DivNode<T: TensorElem, const RANK: usize> {
+    lhs_data: Tensor<T, RANK, Cpu>,
+    rhs_data: Tensor<T, RANK, Cpu>,
+    lhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    rhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    out_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    parents: Vec<Rc<dyn GraphNode>>,
+}
 
-// --- MatMul Node ---
-/// A node representing matrix multiplication in the computation graph.
+impl<T: TensorElem, const RANK: usize> GraphNode for DivNode<T, RANK> {
+    fn backward(&self) {
+        if let Some(grad) = self.out_grad.borrow().as_ref() {
+            // d(x/y)/dx = 1/y * grad
+            // d(x/y)/dy = -x/y^2 * grad
+
+            {
+                let mut lhs = self.lhs_grad.borrow_mut();
+                let dl_dx = (grad.div(&self.rhs_data)).unwrap();
+                if let Some(l) = lhs.as_mut() {
+                    *l = (l.add(&dl_dx)).unwrap();
+                } else {
+                    *lhs = Some(dl_dx);
+                }
+            }
+
+            {
+                let mut rhs = self.rhs_grad.borrow_mut();
+                // -x / y^2 * grad
+                // = -1 * x * y^-2 * grad
+                // = -(x * grad) / (y * y)
+
+                let x_grad = (&self.lhs_data * grad).unwrap();
+                let y_sq = (&self.rhs_data * &self.rhs_data).unwrap();
+                let val = (x_grad.div(&y_sq)).unwrap();
+
+                let zero = Tensor::zeros(*val.shape());
+                let neg_val = (zero.sub(&val)).unwrap();
+
+                if let Some(r) = rhs.as_mut() {
+                    *r = (r.add(&neg_val)).unwrap();
+                } else {
+                    *rhs = Some(neg_val);
+                }
+            }
+        }
+    }
+
+    fn parents(&self) -> Vec<Rc<dyn GraphNode>> {
+        self.parents.clone()
+    }
+}
+
+impl<T: TensorElem + 'static, const RANK: usize> Div for Variable<T, RANK> {
+    type Output = Variable<T, RANK>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let data = (&self.data / &rhs.data).unwrap();
+
+        let mut parents = Vec::new();
+        if let Some(p) = &self.node {
+            parents.push(p.clone());
+        }
+        if let Some(p) = &rhs.node {
+            parents.push(p.clone());
+        }
+
+        let out_grad = Rc::new(RefCell::new(None));
+
+        let node = Rc::new(DivNode {
+            lhs_data: self.data.clone(),
+            rhs_data: rhs.data.clone(),
+            lhs_grad: self.grad.clone(),
+            rhs_grad: rhs.grad.clone(),
+            out_grad: out_grad.clone(),
+            parents,
+        });
+
+        Variable {
+            data,
+            grad: out_grad,
+            node: Some(node),
+        }
+    }
+}
+
 // --- MatMul Node ---
 /// A node representing matrix multiplication in the computation graph.
 #[derive(Debug)]
@@ -245,6 +408,72 @@ impl<T: TensorElem, const RANK: usize> GraphNode for MatMulNode<T, RANK> {
     }
 }
 
+// --- Exp Node ---
+#[derive(Debug)]
+struct ExpNode<T: TensorElem, const RANK: usize> {
+    out_data: Tensor<T, RANK, Cpu>,
+    input_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    out_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    parents: Vec<Rc<dyn GraphNode>>,
+}
+
+impl<T: TensorElem + 'static, const RANK: usize> GraphNode for ExpNode<T, RANK> {
+    fn backward(&self) {
+        if let Some(grad) = self.out_grad.borrow().as_ref() {
+            // d(exp(x))/dx = exp(x) * grad = out * grad
+            //
+            // Explanation:
+            // The derivative of e^x is e^x.
+            // By chain rule, if y = e^x, then dL/dx = dL/dy * dy/dx = grad * e^x.
+            // Since out_data = e^x, we can reuse it: dL/dx = grad * out_data.
+            let mut input = self.input_grad.borrow_mut();
+            let dx = (&self.out_data * grad).unwrap();
+            if let Some(i) = input.as_mut() {
+                *i = (i.add(&dx)).unwrap();
+            } else {
+                *input = Some(dx);
+            }
+        }
+    }
+
+    fn parents(&self) -> Vec<Rc<dyn GraphNode>> {
+        self.parents.clone()
+    }
+}
+
+// --- Log Node ---
+#[derive(Debug)]
+struct LogNode<T: TensorElem, const RANK: usize> {
+    input_data: Tensor<T, RANK, Cpu>,
+    input_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    out_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
+    parents: Vec<Rc<dyn GraphNode>>,
+}
+
+impl<T: TensorElem + 'static, const RANK: usize> GraphNode for LogNode<T, RANK> {
+    fn backward(&self) {
+        if let Some(grad) = self.out_grad.borrow().as_ref() {
+            // d(log(x))/dx = 1/x * grad
+            //
+            // Explanation:
+            // The derivative of ln(x) is 1/x.
+            // By chain rule: dL/dx = dL/dy * dy/dx = grad * (1/x) = grad / x.
+            let mut input = self.input_grad.borrow_mut();
+            // 1/x * grad = grad / x
+            let dx = (grad.div(&self.input_data)).unwrap();
+            if let Some(i) = input.as_mut() {
+                *i = (i.add(&dx)).unwrap();
+            } else {
+                *input = Some(dx);
+            }
+        }
+    }
+
+    fn parents(&self) -> Vec<Rc<dyn GraphNode>> {
+        self.parents.clone()
+    }
+}
+
 impl<T: TensorElem + 'static, const RANK: usize> Variable<T, RANK> {
     /// Performs matrix multiplication between two variables.
     ///
@@ -276,6 +505,62 @@ impl<T: TensorElem + 'static, const RANK: usize> Variable<T, RANK> {
             grad: out_grad,
             node: Some(node),
         })
+    }
+
+    pub fn exp(&self) -> Self {
+        // Assuming T has exp (Float). TensorElem includes Num, but maybe not Float directly in trait bounds?
+        // We might need to use map with f64 cast if T doesn't support exp directly.
+        // Or assume T is f32/f64.
+        // Let's use map.
+        let data = self
+            .data
+            .map(|x| T::from_f64(x.to_f64().unwrap().exp()).unwrap());
+
+        let mut parents = Vec::new();
+        if let Some(p) = &self.node {
+            parents.push(p.clone());
+        }
+
+        let out_grad = Rc::new(RefCell::new(None));
+
+        let node = Rc::new(ExpNode {
+            out_data: data.clone(),
+            input_grad: self.grad.clone(),
+            out_grad: out_grad.clone(),
+            parents,
+        });
+
+        Variable {
+            data,
+            grad: out_grad,
+            node: Some(node),
+        }
+    }
+
+    pub fn log(&self) -> Self {
+        let data = self
+            .data
+            .map(|x| T::from_f64(x.to_f64().unwrap().ln()).unwrap());
+
+        let mut parents = Vec::new();
+        if let Some(p) = &self.node {
+            parents.push(p.clone());
+        }
+
+        let out_grad = Rc::new(RefCell::new(None));
+
+        let node = Rc::new(LogNode {
+            input_data: self.data.clone(),
+            input_grad: self.grad.clone(),
+            out_grad: out_grad.clone(),
+            parents,
+        });
+
+        Variable {
+            data,
+            grad: out_grad,
+            node: Some(node),
+        }
     }
 }
 
@@ -509,5 +794,147 @@ mod tests {
         b.backward();
         c.backward();
         // We don't check gradients here, just ensuring the code paths run.
+    }
+    #[test]
+    fn test_sub_backward() {
+        let a = Variable::new(Tensor::new(vec![5.0], []).unwrap());
+        let b = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+        let c = a.clone() - b.clone();
+
+        c.backward();
+
+        assert_eq!(a.grad.borrow().as_ref().unwrap().data()[0], 1.0);
+        assert_eq!(b.grad.borrow().as_ref().unwrap().data()[0], -1.0);
+    }
+
+    #[test]
+    fn test_div_backward() {
+        // y = a / b
+        // a = 6, b = 3
+        // y = 2
+        // dy/da = 1/b = 1/3
+        // dy/db = -a/b^2 = -6/9 = -2/3
+
+        let a = Variable::new(Tensor::new(vec![6.0], []).unwrap());
+        let b = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+        let c = a.clone() / b.clone();
+
+        c.backward();
+
+        let a_grad = a.grad.borrow().as_ref().unwrap().data()[0];
+        let b_grad = b.grad.borrow().as_ref().unwrap().data()[0];
+
+        assert!((a_grad - (1.0f64 / 3.0)).abs() < 1e-6);
+        assert!((b_grad - (-2.0f64 / 3.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_exp_backward() {
+        // y = exp(x)
+        // x = 0
+        // y = 1
+        // dy/dx = exp(x) = 1
+
+        let x = Variable::new(Tensor::new(vec![0.0], []).unwrap());
+        let y = x.exp();
+
+        y.backward();
+
+        assert_eq!(x.grad.borrow().as_ref().unwrap().data()[0], 1.0);
+    }
+
+    #[test]
+    fn test_log_backward() {
+        // y = log(x)
+        // x = 2
+        // dy/dx = 1/x = 0.5
+
+        let x = Variable::new(Tensor::new(vec![2.0], []).unwrap());
+        let y = x.log();
+
+        y.backward();
+
+        assert_eq!(x.grad.borrow().as_ref().unwrap().data()[0], 0.5);
+    }
+
+    #[test]
+    fn test_sub_accumulation() {
+        // y = x - x
+        // dy/dx = 1 - 1 = 0
+
+        let x = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+        let y = x.clone() - x.clone();
+
+        y.backward();
+
+        assert_eq!(x.grad.borrow().as_ref().unwrap().data()[0], 0.0);
+    }
+
+    #[test]
+    fn test_sub_accumulation_complex() {
+        // y = (x - a) - x
+        // dy/dx = 1 - 1 = 0
+        let x = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+        let a = Variable::new(Tensor::new(vec![1.0], []).unwrap());
+        let y = (x.clone() - a) - x.clone();
+
+        y.backward();
+        assert_eq!(x.grad.borrow().as_ref().unwrap().data()[0], 0.0);
+    }
+
+    #[test]
+    fn test_div_accumulation() {
+        // y = x / x = 1
+        // dy/dx = 0
+
+        let x = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+        let y = x.clone() / x.clone();
+
+        y.backward();
+
+        assert_eq!(x.grad.borrow().as_ref().unwrap().data()[0], 0.0);
+    }
+
+    #[test]
+    fn test_div_accumulation_complex() {
+        // y = (x / a) / x = 1/a
+        // dy/dx = 0
+        // Wait. y = (x/a) * x^-1
+        // dy/dx = (1/a)*x^-1 + (x/a)*(-x^-2)
+        //       = 1/(ax) - 1/(ax) = 0.
+        let x = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+        let a = Variable::new(Tensor::new(vec![1.0], []).unwrap());
+        let y = (x.clone() / a) / x.clone();
+
+        y.backward();
+        assert_eq!(x.grad.borrow().as_ref().unwrap().data()[0], 0.0);
+    }
+
+    #[test]
+    fn test_exp_accumulation() {
+        // y = exp(x) + exp(x) = 2exp(x)
+        // x = 0
+        // dy/dx = 2exp(0) = 2
+
+        let x = Variable::new(Tensor::new(vec![0.0], []).unwrap());
+        let y = x.exp() + x.exp();
+
+        y.backward();
+
+        assert_eq!(x.grad.borrow().as_ref().unwrap().data()[0], 2.0);
+    }
+
+    #[test]
+    fn test_log_accumulation() {
+        // y = log(x) + log(x) = 2log(x)
+        // x = 2
+        // dy/dx = 2/x = 1
+
+        let x = Variable::new(Tensor::new(vec![2.0], []).unwrap());
+        let y = x.log() + x.log();
+
+        y.backward();
+
+        assert_eq!(x.grad.borrow().as_ref().unwrap().data()[0], 1.0);
     }
 }

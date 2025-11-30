@@ -1,0 +1,352 @@
+[2m2025-11-30T04:07:30.300011Z[0m [32m INFO[0m [2mcargo_tarpaulin::config[0m[2m:[0m Creating config
+[2m2025-11-30T04:07:30.805879Z[0m [32m INFO[0m [2mcargo_tarpaulin[0m[2m:[0m Running Tarpaulin
+[2m2025-11-30T04:07:30.805906Z[0m [32m INFO[0m [2mcargo_tarpaulin[0m[2m:[0m Building project
+[2m2025-11-30T04:07:30.806048Z[0m [32m INFO[0m [2mcargo_tarpaulin::cargo[0m[2m:[0m Cleaning project
+[2m2025-11-30T04:08:44.444234Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/xla_rs_kernels-c313ba705d143dd8
+[2m2025-11-30T04:08:44.444421Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 5 tests
+test cpu_matmul::tests::test_matmul_batch ... ok
+test cpu_matmul::tests::test_matmul_shape_mismatch ... ok
+test cpu_matmul::tests::test_matmul_simple ... ok
+test cpu_transpose::tests::test_transpose_batch ... ok
+test cpu_transpose::tests::test_transpose_simple ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:44.859435Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/xla_rs_kernels-c313ba705d143dd8
+[2m2025-11-30T04:08:44.859458Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/xla_rs_kernels-c313ba705d143dd8_14794562108213554041_0-36142.profraw
+[2m2025-11-30T04:08:44.859468Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:44.863983Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:44.939014Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/gemma_serve-7dcb30c0fe6b73c0
+[2m2025-11-30T04:08:44.939100Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:45.271295Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/gemma_serve-7dcb30c0fe6b73c0
+[2m2025-11-30T04:08:45.271318Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/gemma_serve-7dcb30c0fe6b73c0_18405333658767880843_0-36143.profraw
+[2m2025-11-30T04:08:45.271328Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:45.271450Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:45.279038Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/gemma_sft-94029de8770ae0c4
+[2m2025-11-30T04:08:45.279119Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:45.600258Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/gemma_sft-94029de8770ae0c4
+[2m2025-11-30T04:08:45.600280Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/gemma_sft-94029de8770ae0c4_18405343554372530827_0-36144.profraw
+[2m2025-11-30T04:08:45.600290Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:45.600479Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:45.608794Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/chapter_01_setup-4c8b3117a58d29a4
+[2m2025-11-30T04:08:45.608920Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 1 test
+test test_environment_setup ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:45.946239Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/chapter_01_setup-4c8b3117a58d29a4
+[2m2025-11-30T04:08:45.946258Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/chapter_01_setup-4c8b3117a58d29a4_6865929254618982481_0-36145.profraw
+[2m2025-11-30T04:08:45.946266Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:45.947597Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:45.960008Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/chapter_02_tensors-d07c54c782fb82e8
+[2m2025-11-30T04:08:45.960098Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 2 tests
+test test_broadcasting ... ok
+test test_tensor_basics ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:46.329599Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/chapter_02_tensors-d07c54c782fb82e8
+[2m2025-11-30T04:08:46.329617Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/chapter_02_tensors-d07c54c782fb82e8_9202122579295150653_0-36146.profraw
+[2m2025-11-30T04:08:46.329625Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:46.352268Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:46.546369Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/gemma_dpo-9b4ea45834036672
+[2m2025-11-30T04:08:46.546470Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:46.857439Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/gemma_dpo-9b4ea45834036672
+[2m2025-11-30T04:08:46.857457Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/gemma_dpo-9b4ea45834036672_18405384236302758539_0-36149.profraw
+[2m2025-11-30T04:08:46.857464Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:46.857691Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:46.866040Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/gemma_train-3e206e48467c5311
+[2m2025-11-30T04:08:46.866119Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:47.188219Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/gemma_train-3e206e48467c5311
+[2m2025-11-30T04:08:47.188238Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/gemma_train-3e206e48467c5311_18405395231419036299_0-36150.profraw
+[2m2025-11-30T04:08:47.188246Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:47.188350Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:47.196905Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/chapter_03_autograd-24d3d61ecdbf4ff7
+[2m2025-11-30T04:08:47.196993Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 1 test
+test test_autograd_simple ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:47.551615Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/chapter_03_autograd-24d3d61ecdbf4ff7
+[2m2025-11-30T04:08:47.551637Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/chapter_03_autograd-24d3d61ecdbf4ff7_2897452074044027296_0-36151.profraw
+[2m2025-11-30T04:08:47.551645Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:47.574572Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:48.017195Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/gemma_lora-168334e6357c0037
+[2m2025-11-30T04:08:48.017325Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:48.634207Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/gemma_lora-168334e6357c0037
+[2m2025-11-30T04:08:48.634233Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/gemma_lora-168334e6357c0037_18405355649000436363_0-36152.profraw
+[2m2025-11-30T04:08:48.634243Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:48.634312Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:48.659912Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/chapter_04_nn-a4ae987c3ced6a96
+[2m2025-11-30T04:08:48.660057Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 1 test
+test test_linear_forward ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:49.113362Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/chapter_04_nn-a4ae987c3ced6a96
+[2m2025-11-30T04:08:49.113385Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/chapter_04_nn-a4ae987c3ced6a96_13682765468112939747_0-36153.profraw
+[2m2025-11-30T04:08:49.113394Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:49.141202Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:49.373586Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/matmul_verification-dc55db0322065ae3
+[2m2025-11-30T04:08:49.373891Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 3 tests
+test test_matmul_2d_verification ... ok
+test test_matmul_3d_verification ... ok
+test test_matmul_4d_verification ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:49.777120Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/matmul_verification-dc55db0322065ae3
+[2m2025-11-30T04:08:49.777142Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/matmul_verification-dc55db0322065ae3_13734998553089415697_0-36158.profraw
+[2m2025-11-30T04:08:49.777150Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:49.804440Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:50.014341Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/autograd_tests-c71afe9d79d20153
+[2m2025-11-30T04:08:50.014463Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 2 tests
+test test_matmul_autograd ... ok
+test test_scalar_autograd ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:08:50.423536Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/autograd_tests-c71afe9d79d20153
+[2m2025-11-30T04:08:50.423556Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/autograd_tests-c71afe9d79d20153_6754493514131150461_0-36159.profraw
+[2m2025-11-30T04:08:50.423564Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:08:50.447030Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:08:50.665790Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/nn_integration_test-ba32d2492f8f14ad
+[2m2025-11-30T04:08:50.665896Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 1 test
+test test_xor_training ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.45s
+
+[2m2025-11-30T04:09:06.503118Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/nn_integration_test-ba32d2492f8f14ad
+[2m2025-11-30T04:09:06.503142Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/nn_integration_test-ba32d2492f8f14ad_12402934420592574417_0-36160.profraw
+[2m2025-11-30T04:09:06.503150Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:09:06.528186Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:09:06.744773Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/chapter_06_gemma-f26ea5e8952e1de1
+[2m2025-11-30T04:09:06.744891Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 2 tests
+test test_gemma_forward ... ok
+test test_gemma_generate ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+[2m2025-11-30T04:09:07.213467Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/chapter_06_gemma-f26ea5e8952e1de1
+[2m2025-11-30T04:09:07.213484Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/chapter_06_gemma-f26ea5e8952e1de1_14457025029459432586_0-36165.profraw
+[2m2025-11-30T04:09:07.213490Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:09:07.236240Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:09:07.462769Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/chapter_05_attention-b6428e43f1614ffd
+[2m2025-11-30T04:09:07.462876Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 2 tests
+test test_attention_forward ... ok
+test test_attention_pronoun_resolution ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2m2025-11-30T04:09:07.876142Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/chapter_05_attention-b6428e43f1614ffd
+[2m2025-11-30T04:09:07.876164Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/chapter_05_attention-b6428e43f1614ffd_8701064591622723042_0-36166.profraw
+[2m2025-11-30T04:09:07.876173Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:09:07.903704Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:09:08.137277Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m running /Users/blitz/my-oss/xla-rs/target/debug/deps/xla_rs-81ec22938208a5a0
+[2m2025-11-30T04:09:08.137399Z[0m [32m INFO[0m [2mcargo_tarpaulin::process_handling[0m[2m:[0m Setting LLVM_PROFILE_FILE
+
+running 107 tests
+test autograd::engine::tests::test_topological_sort ... ok
+test autograd::functional::tests::test_grad_constant ... ok
+test autograd::functional::tests::test_grad_square ... ok
+test autograd::functional::tests::test_value_and_grad_constant ... ok
+test autograd::functional::tests::test_value_and_grad_cubic ... ok
+test autograd::ops::tests::test_add_accumulation ... ok
+test autograd::ops::tests::test_add_backward ... ok
+test autograd::ops::tests::test_chain_rule ... ok
+test autograd::ops::tests::test_matmul_accumulation ... ok
+test autograd::ops::tests::test_matmul_backward ... ok
+test autograd::ops::tests::test_matmul_chain_rule ... ok
+test autograd::ops::tests::test_mul_accumulation ... ok
+test autograd::ops::tests::test_mul_backward ... ok
+test autograd::ops::tests::test_non_leaf_operations ... ok
+test autograd::tests::test_variable_backward_seed ... ok
+test autograd::tests::test_variable_creation ... ok
+test autograd::tests::test_variable_with_node ... ok
+test kernels::attention::tests::test_parallel_coverage ... ok
+test loss::tests::test_dpo_loss ... ok
+test loss::tests::test_dpo_loss_preference ... ok
+test models::gemma::tests::test_gemma_causal_lm_forward ... ok
+test models::gemma::tests::test_gemma_generate ... ok
+test nn::activation::tests::test_activation_silu_tensor ... ok
+test nn::activation::tests::test_silu_value ... ok
+test nn::linear::tests::test_linear_forward_rank2 ... ok
+test nn::linear::tests::test_linear_forward_rank2_no_bias ... ok
+test nn::linear::tests::test_linear_forward_rank3 ... ok
+test nn::linear::tests::test_linear_forward_rank3_mismatch ... ok
+test nn::linear::tests::test_linear_forward_rank3_with_bias ... ok
+test nn::linear::tests::test_linear_new ... ok
+test nn::linear::tests::test_linear_shape_mismatch ... ok
+test nn::lora::tests::test_lora_linear_forward ... ok
+test nn::lora::tests::test_lora_linear_new ... ok
+test nn::module::tests::test_module_implementation ... ok
+test nn::norm::tests::test_rmsnorm_forward ... ok
+test nn::norm::tests::test_rmsnorm_shape_mismatch ... ok
+test nn::transformer::attention::tests::test_mha_forward ... ok
+test nn::transformer::attention::tests::test_mha_forward_gqa ... ok
+test nn::transformer::attention::tests::test_mha_forward_mixed_mask ... ok
+test nn::transformer::attention::tests::test_mha_forward_with_mask ... ok
+test nn::transformer::attention::tests::test_repeat_kv_no_rep ... ok
+test nn::transformer::attention::tests::test_softmax_max_not_first ... ok
+test nn::transformer::attention_optimized::tests::test_attention_weights ... ok
+test nn::transformer::attention_optimized::tests::test_gqa_shapes ... ok
+test nn::transformer::attention_optimized::tests::test_kv_cache_update ... ok
+test nn::transformer::attention_optimized::tests::test_optimized_attention_shapes ... ok
+test nn::transformer::attention_optimized::tests::test_rope_rotation ... ok
+test nn::transformer::moe::tests::test_moe_forward ... ok
+test nn::transformer::moe::tests::test_moe_unused_expert ... ok
+test optim::sgd::tests::test_sgd_new ... ok
+test optim::sgd::tests::test_sgd_update ... ok
+test optim::sgd::tests::test_sgd_update_shape_mismatch ... ok
+test tensor::const_ops::tests::test_const_ops ... ok
+test tensor::device::tests::test_const_device_name ... ok
+test tensor::device::tests::test_const_device_transpose_error ... ok
+test tensor::device::tests::test_const_device_transpose_success ... ok
+test tensor::device::tests::test_cpu_device_name ... ok
+test tensor::device::tests::test_cpu_device_traits ... ok
+test tensor::device::tests::test_cpu_transpose_error ... ok
+test tensor::device::tests::test_cpu_transpose_mismatch ... ok
+test tensor::ops::tests::test_arithmetic ... ok
+test tensor::ops::tests::test_map ... ok
+test tensor::ops::tests::test_matmul_10d ... ok
+test tensor::ops::tests::test_matmul_2d ... ok
+test tensor::ops::tests::test_matmul_3d ... ok
+test tensor::ops::tests::test_matmul_4d ... ok
+test tensor::ops::tests::test_matmul_batch_mismatch ... ok
+test tensor::ops::tests::test_matmul_broadcast_error ... ok
+test tensor::ops::tests::test_transpose ... ok
+test tensor::ops::tests::test_transpose_10d ... ok
+test tensor::ops::tests::test_transpose_4d ... ok
+test tensor::ops::tests::test_transpose_axes ... ok
+test tensor::ops::tests::test_transpose_axes_error ... ok
+test tensor::ops::tests::test_transpose_axes_identity ... ok
+test tensor::ops::tests::test_transpose_axes_unsupported ... ok
+test tensor::ops::tests::test_transpose_error ... ok
+test tensor::storage::tests::test_array_storage ... ok
+test tensor::storage::tests::test_empty_storage ... ok
+test tensor::storage::tests::test_storage_defaults ... ok
+test tensor::storage::tests::test_vec_storage ... ok
+test tensor::tests::test_arithmetic ... ok
+test tensor::tests::test_compute_strides ... ok
+test tensor::tests::test_conflict_check ... ok
+test tensor::tests::test_const_compile_check ... ok
+test tensor::tests::test_const_matmul ... ok
+test tensor::tests::test_const_matmul_panic_output - should panic ... ok
+test tensor::tests::test_const_matmul_panic_shape - should panic ... ok
+test tensor::tests::test_const_new_panic - should panic ... ok
+test tensor::tests::test_const_ops ... ok
+test tensor::tests::test_const_reshape_panic - should panic ... ok
+test tensor::tests::test_const_tensor ... ok
+test tensor::tests::test_const_tensor_debug ... ok
+test tensor::tests::test_const_transpose_panic - should panic ... ok
+test tensor::tests::test_generic_transpose ... ok
+test tensor::tests::test_macro ... ok
+test tensor::tests::test_matmul_2d ... ok
+test tensor::tests::test_matmul_broadcast_error ... ok
+test tensor::tests::test_reshape ... ok
+test tensor::tests::test_tensor_accessors ... ok
+test tensor::tests::test_tensor_clone ... ok
+test tensor::tests::test_tensor_creation ... ok
+test tensor::tests::test_tensor_debug ... ok
+test tensor::tests::test_tensor_error_debug_fmt ... ok
+test tensor::tests::test_tensor_error_display ... ok
+test tensor::tests::test_transpose ... ok
+test tensor::tests::test_transpose_axes ... ok
+test tensor::tests::test_zeros_ones ... ok
+
+test result: ok. 107 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+[2m2025-11-30T04:09:08.704574Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m For binary: target/debug/deps/xla_rs-81ec22938208a5a0
+[2m2025-11-30T04:09:08.704594Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Generated: target/tarpaulin/profraws/xla_rs-81ec22938208a5a0_6260610218389021173_0-36168.profraw
+[2m2025-11-30T04:09:08.704615Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Merging coverage reports
+[2m2025-11-30T04:09:08.736559Z[0m [32m INFO[0m [2mcargo_tarpaulin::statemachine::instrumented[0m[2m:[0m Mapping coverage data to source
+[2m2025-11-30T04:09:08.990209Z[0m [32m INFO[0m [2mcargo_tarpaulin::report[0m[2m:[0m Coverage Results:
+|| Uncovered Lines:
+|| core/src/autograd/ops.rs: 114-115, 120-122, 124, 129, 134-135, 137-138, 140, 146-147, 283-284, 289-292, 294, 299, 304-306, 308-309, 311-312, 314, 320-321, 328-329, 331-333, 335-336, 339, 341-347, 353, 421-422, 429-432, 434, 439-440, 454-455, 461, 463-465, 467, 472-473
+|| core/src/kernels/attention.rs: 115-117
+|| core/src/models/gemma/mod.rs: 25, 38, 249-251, 253, 255-256, 258, 261-263, 265, 270, 274-275, 278, 280-281, 285, 291, 293, 296-298, 302-306, 309, 312-316, 319, 322-326, 329, 332-336, 339, 343-350, 355-357, 359, 362-364, 366, 369-371, 373, 393-394, 396, 398-399, 401, 403-404, 406-407, 410-414, 419-421, 423, 432-433, 435, 437, 439-443
+|| core/src/models/gemma/tokenizer.rs: 9-12, 15-20, 23-27
+|| core/src/models/traits.rs: 30, 36-38
+|| core/src/nn/embedding.rs: 29-31
+|| core/src/nn/transformer/attention.rs: 141, 166-168
+|| core/src/nn/transformer/moe.rs: 211
+|| core/src/optim/sgd.rs: 20, 26
+|| core/src/tensor/ops.rs: 160
+|| core/tests/nn_integration_test.rs: 34
+|| Tested/Total Lines:
+|| core/src/autograd/engine.rs: 15/15 +0.00%
+|| core/src/autograd/functional.rs: 19/19 +0.00%
+|| core/src/autograd/mod.rs: 9/9 +0.00%
+|| core/src/autograd/ops.rs: 133/199 +0.00%
+|| core/src/kernels/attention.rs: 180/183 +0.00%
+|| core/src/loss.rs: 14/14 +0.00%
+|| core/src/models/gemma/mod.rs: 62/159 +0.00%
+|| core/src/models/gemma/tokenizer.rs: 0/15 +0.00%
+|| core/src/models/traits.rs: 0/4 +0.00%
+|| core/src/nn/activation.rs: 6/6 +0.00%
+|| core/src/nn/embedding.rs: 16/19 +0.00%
+|| core/src/nn/linear.rs: 46/46 +0.00%
+|| core/src/nn/lora.rs: 13/13 +0.00%
+|| core/src/nn/norm.rs: 21/21 +0.00%
+|| core/src/nn/transformer/attention.rs: 76/80 +0.00%
+|| core/src/nn/transformer/attention_optimized.rs: 55/55 +0.00%
+|| core/src/nn/transformer/moe.rs: 76/77 +0.00%
+|| core/src/nn/transformer/rope.rs: 31/31 +0.00%
+|| core/src/optim/sgd.rs: 12/14 +0.00%
+|| core/src/tensor/const_ops.rs: 4/4 +0.00%
+|| core/src/tensor/device.rs: 38/38 +0.00%
+|| core/src/tensor/mod.rs: 140/140 +0.00%
+|| core/src/tensor/ops.rs: 90/91 +0.00%
+|| core/src/tensor/storage.rs: 16/16 +0.00%
+|| core/tests/chapter_05_attention.rs: 7/7 +0.00%
+|| core/tests/chapter_06_gemma.rs: 22/22 +0.00%
+|| core/tests/nn_integration_test.rs: 43/44 +0.00%
+|| kernels/src/cpu_matmul.rs: 31/31 +0.00%
+|| kernels/src/cpu_transpose.rs: 20/20 +0.00%
+|| 
+85.85% coverage, 1195/1392 lines covered, +0.00% change in coverage

@@ -58,7 +58,7 @@ coverage:
 		echo "cargo-tarpaulin not found. Installing..."; \
 		cargo install cargo-tarpaulin; \
 	fi
-	cargo tarpaulin --workspace --fail-under 90 --out Xml --out Html
+	cargo tarpaulin --workspace --fail-under 98 --out Xml --out Html
 
 linkcheck:
 	@if ! command -v mdbook-linkcheck2 >/dev/null 2>&1; then \

@@ -48,6 +48,13 @@
 - **Gemma**: Full implementation of the Gemma architecture.
 - **Zero-Overhead Const Operations**: Perform complex tensor operations like `transpose` and `matmul` entirely at compile time using `ConstDevice`.
 
+> [!NOTE]
+> **Implementation Fidelity**
+> This project is an **educational implementation** designed to teach the fundamentals of LLMs. It is **not** a faithful reproduction of the official DeepMind Gemma 2 or PaliGemma architectures. Specifically, it currently lacks:
+> *   **Interleaved Local-Global Attention**: We use standard global attention for all layers.
+> *   **SigLIP Vision Encoders**: We support text-only models, not the multimodal PaliGemma.
+> *   **Advanced RL Strategies**: We implement DPO, but not the more complex WARP or BOND strategies used in the official release.
+
 ## Roadmap
 
 We are building towards a production-grade system:

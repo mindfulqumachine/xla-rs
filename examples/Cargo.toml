@@ -1,0 +1,36 @@
+[package]
+name = "xla-rs-examples"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+xla_rs = { path = "../core", features = ["models"] }
+anyhow = "1.0.100"
+rand = "0.9.2"
+tokio = { version = "1.43.0", features = ["full"] }
+axum = "0.8.1"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.138"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+
+[[bin]]
+name = "gemma_train"
+path = "src/bin/gemma/train.rs"
+
+[[bin]]
+name = "gemma_serve"
+path = "src/bin/gemma/serve.rs"
+
+[[bin]]
+name = "gemma_sft"
+path = "src/bin/gemma/sft.rs"
+
+[[bin]]
+name = "gemma_lora"
+path = "src/bin/gemma/lora.rs"
+
+[[bin]]
+name = "gemma_dpo"
+path = "src/bin/gemma/dpo.rs"

@@ -21,6 +21,9 @@ rayon = "1.11.0"
 thiserror = "2.0.17"
 xla-rs-kernels = { path = "../kernels" }
 const_soft_float = "0.1.4"
+safetensors = "0.4.1"
+memmap2 = "0.9.4"
+tokenizers = "0.19.1"
 
 [dev-dependencies]
 criterion = "0.5.1"

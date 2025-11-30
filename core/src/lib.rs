@@ -73,7 +73,9 @@ pub use autograd::Variable;
 pub use tensor::{ConstDevice, Cpu, Device, Storage, Tensor, TensorElem, TensorError, TensorOps};
 
 pub mod kernels;
+pub mod loss;
 #[cfg(feature = "models")]
 pub mod models;
 pub mod nn;
+pub mod optim;
 pub mod tensor;
