@@ -27,6 +27,7 @@ tokenizers = "0.19.1"
 
 [dev-dependencies]
 criterion = "0.5.1"
+tempfile = "3.10"
 
 [[bench]]
 name = "transpose_benchmark"

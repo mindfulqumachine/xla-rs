@@ -33,7 +33,7 @@ fn test_attention_forward() {
     // RoPE freqs
     let (cos, sin) = precompute_freqs_cis(head_dim, 10, 10000.0);
 
-    let output = attn.forward(&x, &cos, &sin, None).unwrap();
+    let output = attn.forward(&x, Some(&cos), Some(&sin), None).unwrap();
 
     assert_eq!(output.shape(), &[1, 2, dim]);
 }

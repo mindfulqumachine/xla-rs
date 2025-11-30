@@ -44,3 +44,34 @@ pub trait CausalLM<T: TensorElem> {
     where
         Self: Sized;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct DummyLM;
+
+    impl CausalLM<f32> for DummyLM {
+        fn forward(&self, _input_ids: &Tensor<usize, 2, Cpu>) -> Result<Tensor<f32, 3, Cpu>> {
+            Ok(Tensor::zeros([1, 1, 1]))
+        }
+
+        fn load_weights<P: AsRef<Path>>(_path: P) -> Result<Self> {
+            Ok(DummyLM)
+        }
+    }
+
+    #[test]
+    fn test_default_generate_implementation() {
+        let model = DummyLM;
+        let prompt = Tensor::new(vec![0usize], [1, 1]).unwrap();
+        let result = model.generate(&prompt, 10);
+        assert!(result.is_err());
+        match result {
+            Err(crate::tensor::TensorError::Unsupported(msg)) => {
+                assert_eq!(msg, "Generation not implemented");
+            }
+            _ => panic!("Expected Unsupported error"),
+        }
+    }
+}

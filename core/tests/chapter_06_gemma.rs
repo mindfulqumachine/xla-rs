@@ -63,7 +63,7 @@ fn test_gemma_forward() {
     // Step 2: Attn
     let attn_out = model.layers[0]
         .self_attn
-        .forward(&norm_x, &cos, &sin, None)
+        .forward(&norm_x, Some(&cos), Some(&sin), None)
         .unwrap();
     assert_eq!(attn_out.shape(), &[1, 2, 64]);
 

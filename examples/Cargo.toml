@@ -34,3 +34,7 @@ path = "src/bin/gemma/lora.rs"
 [[bin]]
 name = "gemma_dpo"
 path = "src/bin/gemma/dpo.rs"
+
+[[bin]]
+name = "gpt2_train"
+path = "src/bin/gpt2/train.rs"

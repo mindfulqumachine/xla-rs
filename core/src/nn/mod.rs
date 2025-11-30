@@ -10,4 +10,4 @@ pub use activation::Activation;
 pub use embedding::Embedding;
 pub use linear::{AllowedLinearRank, Linear};
 pub use module::Module;
-pub use norm::RMSNorm;
+pub use norm::{LayerNorm, RMSNorm};

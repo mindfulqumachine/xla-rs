@@ -102,7 +102,7 @@ impl<T: TensorElem + Float> GemmaBlock<T> {
         let norm_x = self.input_layernorm.forward(x)?;
         let attn_out = self
             .self_attn
-            .forward(&norm_x, freqs_cos, freqs_sin, mask)?;
+            .forward(&norm_x, Some(freqs_cos), Some(freqs_sin), mask)?;
 
         let x = (residual.add(&attn_out))?;
 

@@ -44,8 +44,8 @@ impl<T: TensorElem + Float> MultiHeadAttention<T> {
     pub fn forward(
         &self,
         x: &Tensor<T, 3, Cpu>,
-        freqs_cos: &Tensor<T, 2, Cpu>,
-        freqs_sin: &Tensor<T, 2, Cpu>,
+        freqs_cos: Option<&Tensor<T, 2, Cpu>>,
+        freqs_sin: Option<&Tensor<T, 2, Cpu>>,
         mask: Option<&Tensor<T, 2, Cpu>>,
     ) -> Result<Tensor<T, 3, Cpu>> {
         let [b, s, _] = *x.shape();
@@ -65,8 +65,11 @@ impl<T: TensorElem + Float> MultiHeadAttention<T> {
         let v = v.transpose_axes(1, 2)?;
 
         // Apply RoPE (expects [B, H, S, D])
-        let q = apply_rope(&q, freqs_cos, freqs_sin)?;
-        let k = apply_rope(&k, freqs_cos, freqs_sin)?;
+        let (q, k) = if let (Some(cos), Some(sin)) = (freqs_cos, freqs_sin) {
+            (apply_rope(&q, cos, sin)?, apply_rope(&k, cos, sin)?)
+        } else {
+            (q, k)
+        };
 
         let (k, v) = if self.num_kv_heads != self.num_heads {
             (self.repeat_kv(&k)?, self.repeat_kv(&v)?)
@@ -236,7 +239,9 @@ mod tests {
         let freqs_cos = Tensor::<f32, 2>::ones([s, head_dim / 2]);
         let freqs_sin = Tensor::<f32, 2>::zeros([s, head_dim / 2]);
 
-        let output = mha.forward(&x, &freqs_cos, &freqs_sin, None).unwrap();
+        let output = mha
+            .forward(&x, Some(&freqs_cos), Some(&freqs_sin), None)
+            .unwrap();
 
         assert_eq!(output.shape(), &[b, s, hidden_dim]);
     }
@@ -276,7 +281,7 @@ mod tests {
         let mask = Tensor::<f32, 2>::zeros([s, s]);
 
         let output = mha
-            .forward(&x, &freqs_cos, &freqs_sin, Some(&mask))
+            .forward(&x, Some(&freqs_cos), Some(&freqs_sin), Some(&mask))
             .unwrap();
         assert_eq!(output.shape(), &[b, s, hidden_dim]);
     }
@@ -328,7 +333,9 @@ mod tests {
         let freqs_cos = Tensor::<f32, 2>::ones([s, head_dim / 2]);
         let freqs_sin = Tensor::<f32, 2>::zeros([s, head_dim / 2]);
 
-        let output = mha.forward(&x, &freqs_cos, &freqs_sin, None).unwrap();
+        let output = mha
+            .forward(&x, Some(&freqs_cos), Some(&freqs_sin), None)
+            .unwrap();
         assert_eq!(output.shape(), &[b, s, hidden_dim]);
     }
 
@@ -370,7 +377,9 @@ mod tests {
         let freqs_cos = Tensor::<f32, 2>::ones([s, head_dim / 2]);
         let freqs_sin = Tensor::<f32, 2>::zeros([s, head_dim / 2]);
 
-        let _ = mha.forward(&x, &freqs_cos, &freqs_sin, None).unwrap();
+        let _ = mha
+            .forward(&x, Some(&freqs_cos), Some(&freqs_sin), None)
+            .unwrap();
     }
 
     #[test]
@@ -446,18 +455,13 @@ mod tests {
         // logic: if mask != 1.0 { val += mask }
         // If mask is 1.0, we do nothing.
         // If mask is 0.0, we add 0.0 (no change).
-        // Wait, usually mask is 0 for keep and -inf for mask out.
-        // Or 1 for keep and 0 for mask out (multiplicative).
-        // The code says: `if mask_data[i] != T::one() { *val += mask_data[i]; }`
-        // This implies if mask is 1.0, we do nothing.
-        // If mask is 0.0, we add 0.0.
         // If mask is -1e9, we add -1e9.
         // So to cover the `else` (do nothing), we need 1.0 in the mask.
         let mask_data = vec![1.0, 0.0, 0.0, 1.0];
         let mask = Tensor::<f32, 2>::new(mask_data, [s, s]).unwrap();
 
         let output = mha
-            .forward(&x, &freqs_cos, &freqs_sin, Some(&mask))
+            .forward(&x, Some(&freqs_cos), Some(&freqs_sin), Some(&mask))
             .unwrap();
         assert_eq!(output.shape(), &[b, s, hidden_dim]);
     }

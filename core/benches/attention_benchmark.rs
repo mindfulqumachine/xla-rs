@@ -63,8 +63,8 @@ fn benchmark_attention(c: &mut Criterion) {
             pedantic_attn
                 .forward(
                     black_box(&x),
-                    black_box(&freqs_cos),
-                    black_box(&freqs_sin),
+                    black_box(Some(&freqs_cos)),
+                    black_box(Some(&freqs_sin)),
                     black_box(None),
                 )
                 .unwrap()
