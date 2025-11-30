@@ -1,7 +1,7 @@
 .PHONY: build test lint book serve playground test-book clean doc doc-test serve-doc
 
 # Default target
-all: fmt lint build coverage test-book doc doc-test spellcheck linkcheck
+all: fmt lint check-updates build coverage test-book doc doc-test spellcheck linkcheck
 
 # Rust commands
 build:
@@ -69,6 +69,13 @@ linkcheck:
 	fi
 	mdbook build book
 
+check-updates:
+	@if ! command -v cargo-outdated >/dev/null 2>&1; then \
+		echo "cargo-outdated not found. Installing..."; \
+		cargo install cargo-outdated; \
+	fi
+	cargo outdated --root-deps-only --exit-code 1
+
 spellcheck:
 	@if ! command -v typos >/dev/null 2>&1; then \
 		echo "typos not found. Installing..."; \
@@ -76,4 +83,4 @@ spellcheck:
 	fi
 	typos book
 
-ci: build lint test test-book doc-test coverage spellcheck
+ci: build lint test-book doc-test coverage spellcheck

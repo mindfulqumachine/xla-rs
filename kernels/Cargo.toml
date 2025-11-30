@@ -9,7 +9,7 @@ num-traits = "0.2.19"
 thiserror = "2.0.17"
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = "0.8.0"
 
 [[bench]]
 name = "ops_bench"

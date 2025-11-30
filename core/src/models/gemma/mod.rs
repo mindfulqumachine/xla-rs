@@ -731,7 +731,7 @@ mod tests {
             })
             .collect();
 
-        let serialized = safetensors::serialize(&views, &None).unwrap();
+        let serialized = safetensors::serialize(&views, None).unwrap();
 
         let mut file = File::create(path).unwrap();
         file.write_all(&serialized).unwrap();

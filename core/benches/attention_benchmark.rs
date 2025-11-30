@@ -1,4 +1,5 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 use xla_rs::nn::Linear;
 use xla_rs::nn::transformer::attention::MultiHeadAttention;
 use xla_rs::nn::transformer::attention_optimized::OptimizedMultiHeadAttention;

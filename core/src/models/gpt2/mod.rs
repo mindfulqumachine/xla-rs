@@ -864,7 +864,7 @@ mod tests {
             })
             .collect();
 
-        safetensors::serialize_to_file(data, &None, file.path()).unwrap();
+        safetensors::serialize_to_file(data, None, file.path()).unwrap();
 
         let model = GPT2LMHeadModel::<f32>::load_weights_with_config(file.path(), config).unwrap();
 
