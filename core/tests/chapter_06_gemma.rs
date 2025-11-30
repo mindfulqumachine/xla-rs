@@ -5,7 +5,7 @@ use xla_rs::models::traits::CausalLM;
 use xla_rs::nn::transformer::attention::MultiHeadAttention;
 use xla_rs::nn::transformer::rope::precompute_freqs_cis;
 use xla_rs::nn::{Embedding, Linear, RMSNorm};
-use xla_rs::tensor::{Tensor, TensorElem};
+use xla_rs::tensor::Tensor;
 
 fn create_dummy_model(config: &GemmaConfig) -> GemmaModel<f32> {
     let mut layers = Vec::new();

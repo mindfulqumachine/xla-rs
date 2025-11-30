@@ -62,9 +62,7 @@ pub fn dpo_loss<T: TensorElem + 'static, const RANK: usize>(
     let one_plus_exp = one + exp_neg_logits;
 
     // log(1 + exp(-logits))
-    let loss = one_plus_exp.log();
-
-    loss
+    one_plus_exp.log()
 }
 
 #[cfg(test)]

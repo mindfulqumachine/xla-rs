@@ -45,7 +45,7 @@ impl<T: TensorElem> Optimizer<T> for Sgd<T> {
             .par_iter_mut()
             .zip(grad.data().par_iter())
             .for_each(|(p, g)| {
-                *p = *p - lr * *g;
+                *p -= lr * *g;
             });
 
         Ok(())

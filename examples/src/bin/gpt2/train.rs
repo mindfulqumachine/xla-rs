@@ -126,8 +126,7 @@ impl<T: TensorElem + 'static> TrainableGPT2<T> {
         let h = self.c_proj.forward(&h);
 
         // Head
-        let logits = self.lm_head.forward(&h);
-        logits
+        self.lm_head.forward(&h)
     }
 }
 

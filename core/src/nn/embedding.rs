@@ -23,8 +23,7 @@ impl<T: TensorElem> Embedding<T> {
         let out_data = out.data_mut();
 
         // TODO: Parallelize this loop using rayon if needed
-        for i in 0..batch_size * seq_len {
-            let token_id = input_data[i];
+        for (i, &token_id) in input_data.iter().enumerate() {
             if token_id >= vocab_size {
                 return Err(crate::tensor::TensorError::IndexOutOfBounds {
                     index: vec![token_id],

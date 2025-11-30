@@ -233,11 +233,11 @@ impl<T: TensorElem + Float> CausalLM<T> for GemmaForCausalLM<T> {
 
             let mut new_data = Vec::with_capacity(batch_size * (seq_len + 1));
             let old_data = current_ids.data();
-            for b in 0..batch_size {
+            for (b, &token) in next_tokens.iter().enumerate() {
                 let start = b * seq_len;
                 let end = start + seq_len;
                 new_data.extend_from_slice(&old_data[start..end]);
-                new_data.push(next_tokens[b]);
+                new_data.push(token);
             }
 
             current_ids = Tensor::new(new_data, [batch_size, seq_len + 1])?;

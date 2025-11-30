@@ -92,6 +92,7 @@ impl<T: TensorElem + 'static> TrainableGemma<T> {
         Self { embed, fc1, fc2 }
     }
 
+    #[allow(dead_code)]
     fn forward(&self, _input_ids: &[usize]) -> Variable<T, 2> {
         // Manual embedding lookup since Variable doesn't support gather
         // We construct input tensor by stacking embedding vectors.
@@ -120,8 +121,7 @@ impl<T: TensorElem + 'static> TrainableGemma<T> {
         // Activation? Variable doesn't have Relu/Silu.
         // We can use x * x (square) as non-linearity?
         let h = h.clone() * h.clone();
-        let logits = self.fc2.forward(&h);
-        logits
+        self.fc2.forward(&h)
     }
 }
 
