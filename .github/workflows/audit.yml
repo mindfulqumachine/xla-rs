@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  checks: write
+
 jobs:
   audit:
     name: Security Audit
