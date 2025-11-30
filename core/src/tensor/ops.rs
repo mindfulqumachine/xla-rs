@@ -1,8 +1,47 @@
 //! Tensor operations.
 //!
-//! This module implements various mathematical operations for Tensors, including
-//! element-wise arithmetic (Add, Sub, Mul, Div), matrix multiplication, and broadcasting.
-//! It uses `rayon` for parallel execution on the CPU.
+//! # Overview
+//!
+//! This module implements the mathematical engine of `xla-rs`. It handles:
+//! - **Element-wise Arithmetic**: `+`, `-`, `*`, `/` (with broadcasting).
+//! - **Matrix Multiplication**: Dot products and batched matmuls.
+//! - **Parallelism**: Uses `rayon` to parallelize operations across CPU cores.
+//!
+//! # Broadcasting
+//!
+//! Broadcasting is a powerful mechanism that allows operations on tensors of different shapes.
+//! For example, you can add a 1D bias vector to a 2D weight matrix.
+//!
+//! **Rules:**
+//! 1. Dimensions are aligned from the right (last dimension).
+//! 2. Two dimensions are compatible if:
+//!    - They are equal, OR
+//!    - One of them is 1.
+//!
+//! > [!NOTE]
+//! > Currently, `xla-rs` implements strict shape checking for simplicity. Full broadcasting
+//! > (expanding dimensions of size 1) is a planned feature. For now, shapes must match exactly
+//! > for element-wise operations.
+//!
+//! # Parallelism
+//!
+//! > [!TIP]
+//! > **Efficiency Note**: Operations are parallelized using `rayon`. This means that for small tensors,
+//! > the overhead of thread synchronization might outweigh the benefits. `xla-rs` is optimized for
+//! > "medium-sized" tensors typical in LLM inference (e.g., hidden size 768+).
+//!
+//! # Examples
+//!
+//! ```rust
+//! use xla_rs::tensor::Tensor;
+//!
+//! let a = Tensor::<f32, 1>::new(vec![1.0, 2.0], [2]).unwrap();
+//! let b = Tensor::<f32, 1>::new(vec![3.0, 4.0], [2]).unwrap();
+//!
+//! // Element-wise addition
+//! let c = (&a + &b).unwrap();
+//! assert_eq!(c.data(), &[4.0, 6.0]);
+//! ```
 
 use super::{Cpu, Device, Result, Tensor, TensorElem, TensorError};
 
@@ -11,8 +50,10 @@ use std::ops::{Add, Div, Mul, Sub};
 
 /// Implements a binary arithmetic operation trait (e.g., `Add`, `Sub`) for `&Tensor`.
 ///
-/// This macro handles the boilerplate of checking shape compatibility, creating a new
-/// output tensor, and performing the element-wise operation in parallel using `rayon`.
+/// This macro handles the boilerplate of:
+/// 1. Checking shape compatibility.
+/// 2. Creating a new output tensor.
+/// 3. Performing the element-wise operation in parallel using `rayon`.
 ///
 /// # Arguments
 ///

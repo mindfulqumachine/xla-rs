@@ -6,6 +6,19 @@ use crate::nn::Linear;
 use crate::tensor::{Cpu, Result, Tensor, TensorElem};
 use num_traits::Float;
 
+/// Optimized Multi-Head Attention.
+///
+/// # Optimizations
+///
+/// This implementation includes several optimizations over the standard `MultiHeadAttention`:
+/// 1. **Fused Projections**: Q, K, and V projections are fused into a single linear layer.
+/// 2. **KV Caching**: Supports efficient incremental decoding by caching Key/Value states.
+/// 3. **Fused Kernels**: Uses specialized kernels for RoPE, Transpose, and Attention to reduce memory overhead.
+///
+/// # Why Fused Projections?
+///
+/// Instead of launching 3 separate matrix multiplications (small kernels), we launch 1 large matrix multiplication.
+/// This improves GPU/CPU utilization and reduces kernel launch overhead.
 #[derive(Debug)]
 pub struct OptimizedMultiHeadAttention<T: TensorElem> {
     pub qkv_proj: Linear<T>,
@@ -76,11 +89,14 @@ impl<T: TensorElem + Float> OptimizedMultiHeadAttention<T> {
         })
     }
 
-    /// Optimized Forward Pass
+    /// Optimized Forward Pass.
     ///
-    /// 1. Fused RoPE + Transpose
-    /// 2. KV Cache Update
-    /// 3. Fused Attention (Score + Softmax + Weighted Sum)
+    /// # Workflow
+    /// 1. **Fused QKV**: Compute Q, K, V in one go.
+    /// 2. **Split**: Separate Q, K, V.
+    /// 3. **Fused RoPE**: Apply Rotary Embeddings and Transpose simultaneously.
+    /// 4. **KV Cache**: Update and retrieve cached keys/values.
+    /// 5. **Fused Attention**: Compute attention scores and output.
     pub fn forward(
         &self,
         x: &Tensor<T, 3, Cpu>,

@@ -1,7 +1,18 @@
 //! Operations for the autograd system.
 //!
-//! This module defines the nodes in the computation graph for various operations
-//! (Add, Mul, MatMul) and implements the `backward` pass for each.
+//! # What is an Op Node?
+//!
+//! Each operation (like `+` or `*`) in the computation graph is represented by a "Node" struct
+//! (e.g., `AddNode`, `MulNode`). These nodes store:
+//! 1. **Inputs**: References to the parent nodes (dependencies).
+//! 2. **Context**: Any data needed to compute gradients (e.g., input tensors for multiplication).
+//! 3. **Gradients**: Where to accumulate the incoming gradient during the backward pass.
+//!
+//! # The `backward` method
+//!
+//! Each node implements `GraphNode::backward`. This method applies the **Chain Rule**.
+//! It receives the gradient from the output (`out_grad`) and computes the gradient with respect
+//! to its inputs, adding them to the inputs' `.grad` fields.
 
 use super::{GraphNode, Variable};
 use crate::tensor::{Cpu, Tensor, TensorElem, TensorOps};
@@ -11,9 +22,13 @@ use std::ops::{Add, Div, Mul, Sub};
 use std::rc::Rc;
 
 // --- Add Node ---
-/// A node representing element-wise addition in the computation graph.
-// --- Add Node ---
-/// A node representing element-wise addition in the computation graph.
+/// A node representing element-wise addition: $y = x_1 + x_2$.
+///
+/// # Derivatives
+/// - $\frac{\partial y}{\partial x_1} = 1$
+/// - $\frac{\partial y}{\partial x_2} = 1$
+///
+/// During backward, we simply pass the output gradient to both inputs.
 #[derive(Debug)]
 struct AddNode<T: TensorElem, const RANK: usize> {
     /// Gradient of the left-hand side operand.
@@ -101,7 +116,11 @@ impl<T: TensorElem + 'static, const RANK: usize> Add for Variable<T, RANK> {
     }
 }
 // --- Sub Node ---
-/// A node representing element-wise subtraction in the computation graph.
+/// A node representing element-wise subtraction: $y = x_1 - x_2$.
+///
+/// # Derivatives
+/// - $\frac{\partial y}{\partial x_1} = 1$
+/// - $\frac{\partial y}{\partial x_2} = -1$
 #[derive(Debug)]
 struct SubNode<T: TensorElem, const RANK: usize> {
     lhs_grad: Rc<RefCell<Option<Tensor<T, RANK, Cpu>>>>,
@@ -180,9 +199,13 @@ impl<T: TensorElem + 'static, const RANK: usize> Sub for Variable<T, RANK> {
 }
 
 // --- Mul Node ---
-/// A node representing element-wise multiplication in the computation graph.
-// --- Mul Node ---
-/// A node representing element-wise multiplication in the computation graph.
+/// A node representing element-wise multiplication: $y = x_1 \odot x_2$.
+///
+/// # Derivatives
+/// - $\frac{\partial y}{\partial x_1} = x_2$
+/// - $\frac{\partial y}{\partial x_2} = x_1$
+///
+/// We must store the input data (`lhs_data`, `rhs_data`) to compute these gradients.
 #[derive(Debug)]
 struct MulNode<T: TensorElem, const RANK: usize> {
     /// Data of the left-hand side operand (needed for gradient calculation).
@@ -268,7 +291,11 @@ impl<T: TensorElem + 'static, const RANK: usize> Mul for Variable<T, RANK> {
     }
 }
 // --- Div Node ---
-/// A node representing element-wise division in the computation graph.
+/// A node representing element-wise division: $y = \frac{x_1}{x_2}$.
+///
+/// # Derivatives
+/// - $\frac{\partial y}{\partial x_1} = \frac{1}{x_2}$
+/// - $\frac{\partial y}{\partial x_2} = -\frac{x_1}{x_2^2}$
 #[derive(Debug)]
 struct DivNode<T: TensorElem, const RANK: usize> {
     lhs_data: Tensor<T, RANK, Cpu>,
@@ -356,7 +383,13 @@ impl<T: TensorElem + 'static, const RANK: usize> Div for Variable<T, RANK> {
 }
 
 // --- MatMul Node ---
-/// A node representing matrix multiplication in the computation graph.
+/// A node representing matrix multiplication: $Y = A @ B$.
+///
+/// # Derivatives
+/// - $\frac{\partial L}{\partial A} = \frac{\partial L}{\partial Y} @ B^T$
+/// - $\frac{\partial L}{\partial B} = A^T @ \frac{\partial L}{\partial Y}$
+///
+/// Note the transpositions. This is standard matrix calculus.
 #[derive(Debug)]
 struct MatMulNode<T: TensorElem, const RANK: usize> {
     /// Data of the left-hand side operand.

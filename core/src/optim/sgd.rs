@@ -18,7 +18,8 @@ impl<T: TensorElem> Sgd<T> {
 
 impl<T: TensorElem> Optimizer<T> for Sgd<T> {
     fn update<const RANK: usize>(
-        &self,
+        &mut self,
+        _key: usize,
         param: &mut Tensor<T, RANK, Cpu>,
         grad: &Tensor<T, RANK, Cpu>,
     ) -> Result<()> {
@@ -56,11 +57,11 @@ mod tests {
 
     #[test]
     fn test_sgd_update() {
-        let sgd = Sgd::new(0.1);
+        let mut sgd = Sgd::new(0.1);
         let mut param = Tensor::new(vec![1.0, 2.0], [2]).unwrap();
         let grad = Tensor::new(vec![0.5, -0.5], [2]).unwrap();
 
-        sgd.update(&mut param, &grad).unwrap();
+        sgd.update(0, &mut param, &grad).unwrap();
 
         // param = param - lr * grad
         // [1.0, 2.0] - 0.1 * [0.5, -0.5]
@@ -72,11 +73,11 @@ mod tests {
 
     #[test]
     fn test_sgd_update_shape_mismatch() {
-        let sgd = Sgd::new(0.1);
+        let mut sgd = Sgd::new(0.1);
         let mut param = Tensor::new(vec![1.0, 2.0], [2]).unwrap();
         let grad = Tensor::new(vec![0.5], [1]).unwrap();
 
-        let result = sgd.update(&mut param, &grad);
+        let result = sgd.update(0, &mut param, &grad);
         assert!(result.is_err());
     }
 }

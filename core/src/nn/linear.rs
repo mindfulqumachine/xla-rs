@@ -11,28 +11,32 @@ pub trait AllowedLinearRank<const N: usize> {}
 impl AllowedLinearRank<2> for () {}
 impl AllowedLinearRank<3> for () {}
 
+/// A Linear (Fully Connected) Layer.
+///
+/// # Mathematical Definition
+///
+/// Performs the operation:
+/// $$y = x A^T + b$$
+///
+/// where:
+/// - $x$ is the input tensor.
+/// - $A$ is the weight matrix.
+/// - $b$ is the bias vector.
+///
+/// # ML Context
+///
+/// The Linear layer is the "workhorse" of deep learning. It represents a dense connection
+/// between neurons. In a Transformer, it's used in:
+/// - **Projections**: Converting input tokens to Query/Key/Value vectors.
+/// - **MLP Blocks**: The feed-forward network that processes information after attention.
+/// - **Head**: The final layer that predicts the next token.
+///
 /// # Design Philosophy: Fixed Ranks
 ///
 /// The `Linear` layer enforces `WEIGHT_RANK = 2` and `BIAS_RANK = 1`.
-/// This is a deliberate design choice to align with the mathematical definition of a Linear (or Fully Connected) layer:
-/// $$y = xA^T + b$$
-///
+/// This is a deliberate design choice to align with the mathematical definition.
 /// - **Weights ($A$):** Must be a Matrix (Rank 2) mapping `in_features` $\to$ `out_features`.
 /// - **Bias ($b$):** Must be a Vector (Rank 1) matching `out_features`.
-///
-/// While one might want to use a `Tensor<T, 16, Cpu>` as weights, doing so would strictly no longer be a
-/// standard "Linear" layer operation (it would be a Tensor Contraction or specialized convolution).
-/// By enforcing these ranks, we keep the `Linear` abstraction clean, predictable, and mathematically correct.
-/// If higher-dimensional weights are needed, they should be explicitly reshaped or flattened before being
-/// passed to a Linear layer.
-///
-/// Linear Layer: `y = xA^T + b`
-///
-/// Performs a linear transformation on the input data.
-/// This layer represents a collection of neurons where every input is connected to every output.
-///
-/// # Generics
-/// - `T`: The element type of the tensors (e.g., `f32`, `f64`).
 ///
 /// # Examples
 /// ```rust
@@ -81,15 +85,14 @@ impl<T: TensorElem> Linear<T> {
 
     /// Performs the forward pass of the Linear layer.
     ///
-    /// Supports inputs of Rank 2 `[batch_size, in_features]` or Rank 3 `[batch_size, seq_len, in_features]`.
+    /// # Logic
+    /// 1. **Transpose Weights**: The weights are stored as `[out, in]` for efficiency, but we need `[in, out]` for multiplication.
+    /// 2. **MatMul**: Compute $x A^T$.
+    /// 3. **Bias**: Add bias $b$ (broadcasting if necessary).
     ///
-    /// # Arguments
-    ///
-    /// * `x` - The input tensor.
-    ///
-    /// # Returns
-    ///
-    /// The output tensor after applying the linear transformation.
+    /// # Shapes
+    /// - Input: `[batch_size, in_features]` OR `[batch_size, seq_len, in_features]`
+    /// - Output: `[batch_size, out_features]` OR `[batch_size, seq_len, out_features]`
     pub fn forward<const RANK: usize>(
         &self,
         x: &Tensor<T, RANK, Cpu>,

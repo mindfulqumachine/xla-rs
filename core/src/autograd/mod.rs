@@ -1,32 +1,52 @@
 //! Automatic Differentiation (Autograd) module.
 //!
-//! This module implements a "Define-by-Run" (Tape-based) automatic differentiation system,
-//! similar to PyTorch. It allows for automatic calculation of gradients for tensor operations,
-//! which is essential for training neural networks.
+//! # What is Autograd?
 //!
-//! # Key Components
+//! Automatic Differentiation (AD) is a technique to evaluate the derivative of a function specified
+//! by a computer program. It is the backbone of modern deep learning, allowing us to compute
+//! gradients of the loss function with respect to model parameters for backpropagation.
 //!
-//! - [`Variable`]: The core struct that wraps a `Tensor` and tracks its gradient and computation history.
-//! - [`GraphNode`]: A trait representing an operation in the computation graph.
-//! - [`engine::backward`]: The engine that performs the backward pass (topological sort and gradient propagation).
-//! - [`functional`]: A submodule providing a JAX-style functional API (`grad`, `value_and_grad`).
+//! `xla-rs` implements **Reverse-Mode AD** (also known as backpropagation) using a **Tape-based** approach.
 //!
-//! # Example
+//! # How it Works
+//!
+//! 1. **Forward Pass**: When you perform operations on `Variable`s (wrappers around Tensors),
+//!    `xla-rs` builds a computation graph (a DAG) dynamically. Each node in the graph represents
+//!    an operation (e.g., addition, multiplication).
+//! 2. **Backward Pass**: When you call `.backward()` on a scalar variable (usually the loss),
+//!    the engine traverses the graph in reverse topological order, computing gradients for each
+//!    node using the chain rule.
+//!
+//! # Example: Simple Gradient Computation
+//!
+//! We want to compute the derivative of $f(x) = x^2$ at $x = 3$.
+//! $f'(x) = 2x$, so $f'(3) = 6$.
 //!
 //! ```rust
-//! # use xla_rs::tensor::Tensor;
-//! # use xla_rs::autograd::Variable;
-//! let a = Variable::new(Tensor::new(vec![2.0], []).unwrap());
-//! let b = Variable::new(Tensor::new(vec![3.0], []).unwrap());
+//! use xla_rs::tensor::Tensor;
+//! use xla_rs::autograd::Variable;
 //!
-//! // c = a * b
-//! let c = a.clone() * b.clone();
+//! // 1. Define input variable (requires gradient)
+//! let data = Tensor::new(vec![3.0], []).unwrap();
+//! let x = Variable::new(data);
 //!
-//! c.backward();
+//! // 2. Perform operation: y = x * x
+//! let y = x.clone() * x.clone();
 //!
-//! // dc/da = b = 3.0
-//! assert_eq!(a.grad.borrow().as_ref().unwrap().data()[0], 3.0);
+//! // 3. Backward pass
+//! y.backward();
+//!
+//! // 4. Check gradient: dy/dx = 2 * x = 6.0
+//! let grad = x.grad.borrow();
+//! assert_eq!(grad.as_ref().unwrap().data()[0], 6.0);
 //! ```
+//!
+//! > [!TIP]
+//! > **Expert Note: Wengert List (Tape)**
+//! > This implementation uses a "Define-by-Run" scheme. The "tape" is implicitly formed by the
+//! > `Rc<dyn GraphNode>` links between variables. This is flexible (allows control flow like loops)
+//! > but can be memory-intensive as the graph grows. Production frameworks often use graph optimization
+//! > passes to reduce memory footprint.
 
 use crate::tensor::{Cpu, Tensor, TensorElem};
 use std::cell::RefCell;

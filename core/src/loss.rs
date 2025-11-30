@@ -3,27 +3,35 @@ use crate::tensor::{Tensor, TensorElem};
 
 /// Computes the Direct Preference Optimization (DPO) loss.
 ///
-/// The DPO loss is defined as:
-/// `L_DPO = -log(sigmoid(beta * (log(pi_theta(yw|x)) - log(pi_ref(yw|x)) - (log(pi_theta(yl|x)) - log(pi_ref(yl|x))))))`
+/// # What is DPO?
+///
+/// DPO is a stable and efficient method for fine-tuning language models to align with human preferences.
+/// Unlike RLHF (Reinforcement Learning from Human Feedback), which requires training a separate reward model
+/// and using PPO, DPO optimizes the policy directly using a closed-form loss function.
+///
+/// # The Math
+///
+/// The DPO loss is derived from the optimal solution to the KL-constrained reward maximization problem:
+///
+/// $$ \mathcal{L}_{\text{DPO}}(\pi_\theta; \pi_{\text{ref}}) = -\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}} \left[ \log \sigma \left( \beta \log \frac{\pi_\theta(y_w|x)}{\pi_{\text{ref}}(y_w|x)} - \beta \log \frac{\pi_\theta(y_l|x)}{\pi_{\text{ref}}(y_l|x)} \right) \right] $$
 ///
 /// Where:
-/// - `pi_theta` is the policy model (being trained).
-/// - `pi_ref` is the reference model (frozen).
-/// - `yw` is the winning (chosen) response.
-/// - `yl` is the losing (rejected) response.
-/// - `beta` is a hyperparameter controlling the deviation from the reference model.
+/// - $y_w$: Winning (chosen) response.
+/// - $y_l$: Losing (rejected) response.
+/// - $\pi_{\text{ref}}$: Reference model (usually the SFT model, frozen).
+/// - $\beta$: Temperature parameter (controls deviation from reference).
 ///
 /// # Arguments
 ///
-/// * `policy_chosen_logprobs` - Log probabilities of the chosen responses from the policy model. Shape: [Batch, 1]
-/// * `policy_rejected_logprobs` - Log probabilities of the rejected responses from the policy model. Shape: [Batch, 1]
-/// * `ref_chosen_logprobs` - Log probabilities of the chosen responses from the reference model. Shape: [Batch, 1]
-/// * `ref_rejected_logprobs` - Log probabilities of the rejected responses from the reference model. Shape: [Batch, 1]
-/// * `beta` - Temperature parameter (typically 0.1 to 0.5).
+/// * `policy_chosen_logprobs`: Log probs of chosen response from policy. Shape: `[Batch, 1]`.
+/// * `policy_rejected_logprobs`: Log probs of rejected response from policy. Shape: `[Batch, 1]`.
+/// * `ref_chosen_logprobs`: Log probs of chosen response from reference. Shape: `[Batch, 1]`.
+/// * `ref_rejected_logprobs`: Log probs of rejected response from reference. Shape: `[Batch, 1]`.
+/// * `beta`: Strength of the KL constraint (typically 0.1).
 ///
 /// # Returns
 ///
-/// A scalar Variable representing the mean DPO loss over the batch.
+/// A scalar `Variable` representing the mean loss.
 pub fn dpo_loss<T: TensorElem + 'static, const RANK: usize>(
     policy_chosen_logprobs: &Variable<T, RANK>,
     policy_rejected_logprobs: &Variable<T, RANK>,

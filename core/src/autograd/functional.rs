@@ -1,19 +1,50 @@
+//! Functional Autograd API.
+//!
+//! # What is this?
+//!
+//! This module provides a "functional" interface to automatic differentiation, inspired by [JAX](https://github.com/google/jax).
+//! Instead of manually calling `.backward()` on a variable, you can transform a function `f(x) -> y`
+//! into a function `grad(f)(x) -> dy/dx`.
+//!
+//! # Why use it?
+//!
+//! - **Cleaner Code**: Encapsulates the forward and backward passes in a single function call.
+//! - **Higher-Order Gradients**: (Future work) Makes it easier to compute derivatives of derivatives (Hessians).
+//!
+//! # Example
+//!
+//! ```rust
+//! use xla_rs::autograd::functional::{grad, value_and_grad};
+//! use xla_rs::tensor::Tensor;
+//! use xla_rs::autograd::Variable;
+//!
+//! // Define a function: f(x) = x^2
+//! // Note: We must annotate the input type `Variable<f32, 1>` (1D tensor of f32)
+//! let square = |x: Variable<f32, 1>| x.clone() * x.clone();
+//!
+//! // 1. Compute just the gradient
+//! let grad_fn = grad(square);
+//! let x = Tensor::new(vec![3.0], [1]).unwrap();
+//! let g = grad_fn(x.clone()); // g = 2x = 6.0
+//! assert_eq!(g.data()[0], 6.0);
+//!
+//! // 2. Compute value AND gradient
+//! let vag_fn = value_and_grad(square);
+//! let (val, g) = vag_fn(x);
+//! assert_eq!(val.data()[0], 9.0); // 3^2
+//! assert_eq!(g.data()[0], 6.0);   // 2*3
+//! ```
+
 use crate::autograd::Variable;
 use crate::tensor::{Cpu, Tensor, TensorElem};
 
 /// Computes the gradient of a function `f` with respect to its input.
 ///
-/// Returns a function that takes a `Tensor` input and returns the gradient `Tensor`.
+/// Returns a closure that takes a `Tensor` input and returns the gradient `Tensor`.
 ///
-/// # Example
-/// ```rust
-/// use xla_rs::autograd::functional::grad;
-/// use xla_rs::tensor::Tensor;
+/// # Arguments
 ///
-/// let grad_square = grad(|x| x.clone() * x.clone());
-/// let g = grad_square(Tensor::new(vec![3.0], []).unwrap());
-/// // g = 6.0
-/// ```
+/// * `f` - A function that takes a `Variable` and returns a `Variable`.
 pub fn grad<F, T, const RANK: usize>(f: F) -> impl Fn(Tensor<T, RANK, Cpu>) -> Tensor<T, RANK, Cpu>
 where
     F: Fn(Variable<T, RANK>) -> Variable<T, RANK>,
@@ -38,7 +69,7 @@ type CpuTensor<T, const RANK: usize> = Tensor<T, RANK, Cpu>;
 
 /// Computes the value and gradient of a function `f` with respect to its input.
 ///
-/// Returns a function that takes a `Tensor` input and returns a tuple `(Value, Gradient)`.
+/// Returns a closure that takes a `Tensor` input and returns a tuple `(Value, Gradient)`.
 pub fn value_and_grad<F, T, const RANK: usize>(
     f: F,
 ) -> impl Fn(CpuTensor<T, RANK>) -> (CpuTensor<T, RANK>, CpuTensor<T, RANK>)

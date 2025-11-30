@@ -1,4 +1,6 @@
+pub mod adamw;
 pub mod sgd;
+pub use adamw::AdamW;
 pub use sgd::Sgd;
 
 use crate::tensor::{Result, Tensor, TensorElem};
@@ -34,8 +36,16 @@ pub trait Optimizer<T: TensorElem> {
     // Let's stick to a simple `step` that takes `&mut Tensor` and `&Tensor` for a single parameter update.
     // The training loop will iterate over params.
 
+    /// Updates a parameter tensor using its gradient.
+    ///
+    /// # Arguments
+    /// * `key` - A unique identifier for the parameter (e.g., its index in the parameter list).
+    ///   This is used by stateful optimizers (like Adam) to track moments.
+    /// * `param` - The parameter tensor to update.
+    /// * `grad` - The gradient tensor.
     fn update<const RANK: usize>(
-        &self,
+        &mut self,
+        key: usize,
         param: &mut Tensor<T, RANK, crate::tensor::Cpu>,
         grad: &Tensor<T, RANK, crate::tensor::Cpu>,
     ) -> Result<()>;

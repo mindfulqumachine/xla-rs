@@ -1,12 +1,21 @@
 use crate::tensor::{Cpu, Result, Tensor, TensorElem};
 use num_traits::Float;
 
-/// Rotary Positional Embedding
+/// Rotary Positional Embedding (RoPE).
 ///
-/// Applies rotation to query and key tensors.
-/// x: [Batch, SeqLen, HeadDim] or [Batch, NumHeads, SeqLen, HeadDim]
+/// # What is RoPE?
 ///
-/// Standard RoPE rotates adjacent pairs of elements.
+/// RoPE encodes position information by rotating the Query and Key vectors in a high-dimensional space.
+///
+/// $$ \begin{pmatrix} x_1' \\ x_2' \end{pmatrix} = \begin{pmatrix} \cos \theta & -\sin \theta \\ \sin \theta & \cos \theta \end{pmatrix} \begin{pmatrix} x_1 \\ x_2 \end{pmatrix} $$
+///
+/// Unlike absolute positional embeddings (added to input), RoPE is multiplicative and relative.
+/// It allows the model to generalize better to sequence lengths longer than seen during training.
+///
+/// # Arguments
+/// * `x`: Input tensor of shape `[Batch, Heads, SeqLen, HeadDim]`.
+/// * `freqs_cos`: Precomputed cosine values `[SeqLen, HeadDim/2]`.
+/// * `freqs_sin`: Precomputed sine values `[SeqLen, HeadDim/2]`.
 pub fn apply_rope<T: TensorElem>(
     x: &Tensor<T, 4, Cpu>,
     freqs_cos: &Tensor<T, 2, Cpu>, // [SeqLen, HeadDim/2]

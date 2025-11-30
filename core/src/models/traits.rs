@@ -1,10 +1,21 @@
 use crate::tensor::{Cpu, Result, Tensor, TensorElem};
 use std::path::Path;
 
-/// A trait for Causal Language Models (e.g., GPT, Llama, Gemma).
+/// A trait for Causal Language Models.
 ///
-/// This trait defines the standard interface for interacting with language models
-/// in `xla-rs`, ensuring consistency across different architectures.
+/// # What is a Causal LM?
+///
+/// A Causal Language Model predicts the next token in a sequence based only on previous tokens.
+/// It uses a "causal mask" (lower triangular matrix) in attention to prevent "cheating" by looking ahead.
+///
+/// Examples: GPT-2, Llama, Gemma.
+///
+/// # Interface
+///
+/// This trait defines the standard interface for:
+/// - **Forward Pass**: Computing logits from input IDs.
+/// - **Generation**: Auto-regressively generating text.
+/// - **Loading**: Loading weights from disk.
 pub trait CausalLM<T: TensorElem> {
     /// Performs a forward pass through the model.
     ///

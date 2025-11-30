@@ -1,38 +1,42 @@
 //! Core Tensor implementation.
 //!
-//! This module defines the `Tensor` struct, which is the central data structure in `xla-rs`.
-//! It supports N-dimensional arrays, automatic differentiation (via the `autograd` module),
-//! and various mathematical operations.
+//! # What is a Tensor?
 //!
-//! # Key Components
+//! In the context of deep learning, a **Tensor** is simply a multi-dimensional array. It is the
+//! fundamental data structure used to store and manipulate data (inputs, weights, gradients).
 //!
-//! - [`Tensor`]: The main struct representing an N-dimensional array.
-//! - [`TensorError`]: Error type for tensor operations.
-//! - [`TensorElem`]: Trait bound for elements that can be stored in a tensor.
+//! - **0D Tensor (Scalar)**: A single number (e.g., loss value).
+//! - **1D Tensor (Vector)**: A list of numbers (e.g., a bias vector).
+//! - **2D Tensor (Matrix)**: A grid of numbers (e.g., a weight matrix).
+//! - **3D+ Tensor**: Higher-dimensional arrays (e.g., a batch of images: `[Batch, Height, Width, Channels]`).
 //!
-//! # ML Context
+//! # How `xla-rs` Tensors Work
 //!
-//! Tensors are the fundamental data structure in deep learning. They generalize scalars (0D),
-//! vectors (1D), and matrices (2D) to N dimensions.
+//! In `xla-rs`, a `Tensor` is defined by:
+//! 1. **Data**: A flat vector of elements (usually `f32`).
+//! 2. **Shape**: An array of dimensions (e.g., `[2, 3]`).
+//! 3. **Strides**: How to step through the flat data to traverse dimensions.
 //!
-//! - **0D**: Scalar (loss value).
-//! - **1D**: Vector (bias term, embedding).
-//! - **2D**: Matrix (weights, grayscale image).
-//! - **3D**: (RGB image, sequence of vectors).
-//! - **4D**: (Batch of RGB images).
-//!
-//! In `xla-rs`, tensors are strongly typed by element type `T` and rank `RANK`.
-//! This allows for some compile-time safety and optimization.
-//!
-//! # Examples
+//! ## Example: Creating and Inspecting a Tensor
 //!
 //! ```rust
 //! use xla_rs::tensor::Tensor;
 //!
-//! let data = vec![1.0, 2.0, 3.0, 4.0];
-//! let tensor = Tensor::<f32, 2>::new(data, [2, 2]).unwrap();
-//! assert_eq!(tensor.shape(), &[2, 2]);
+//! // Create a 2x3 matrix (Rank 2 Tensor)
+//! let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+//! let tensor = Tensor::<f32, 2>::new(data, [2, 3]).unwrap();
+//!
+//! assert_eq!(tensor.shape(), &[2, 3]);
+//!
+//! // Accessing data (flat slice)
+//! assert_eq!(tensor.data(), &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
 //! ```
+//!
+//! > [!TIP]
+//! > **Expert Note: Strides and Memory Layout**
+//! > `xla-rs` uses **Row-Major** (C-style) layout. This means the last dimension changes the fastest
+//! > in memory. Understanding strides is crucial for implementing efficient operations like
+//! > broadcasting and transposing without copying data.
 
 use num_traits::{FromPrimitive, Num, NumAssign, ToPrimitive};
 use std::fmt::Debug;

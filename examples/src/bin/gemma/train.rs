@@ -140,7 +140,7 @@ fn main() {
     // fc2: [Hidden, Vocab]
 
     let mut model = TrainableGemma::new(vocab_size, hidden_dim, output_dim);
-    let optimizer = Sgd::new(0.01);
+    let mut optimizer = Sgd::new(0.01);
     let mut rng = rand::rng();
 
     println!("Starting Training Loop...");
@@ -179,7 +179,7 @@ fn main() {
         {
             let grad_ref = model.embed.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut model.embed.data, grad).unwrap();
+                optimizer.update(0, &mut model.embed.data, grad).unwrap();
             }
         }
         *model.embed.grad.borrow_mut() = None;
@@ -188,7 +188,9 @@ fn main() {
         {
             let grad_ref = model.fc1.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut model.fc1.weight.data, grad).unwrap();
+                optimizer
+                    .update(1, &mut model.fc1.weight.data, grad)
+                    .unwrap();
             }
         }
         *model.fc1.weight.grad.borrow_mut() = None;
@@ -197,7 +199,9 @@ fn main() {
         {
             let grad_ref = model.fc2.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut model.fc2.weight.data, grad).unwrap();
+                optimizer
+                    .update(2, &mut model.fc2.weight.data, grad)
+                    .unwrap();
             }
         }
         *model.fc2.weight.grad.borrow_mut() = None;

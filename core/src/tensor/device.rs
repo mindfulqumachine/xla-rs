@@ -1,32 +1,31 @@
 //! Device abstraction for Tensor storage.
 //!
-//! This module defines the `Device` trait and the `Cpu` device implementation.
-//! Devices determine where tensor data is allocated and how operations are executed.
+//! # What is a Device?
 //!
-//! # ML Context
+//! In Deep Learning, a "Device" refers to the hardware component where the tensor data lives and
+//! where computations are executed.
 //!
-//! In machine learning frameworks, a "Device" represents the hardware accelerator where
-//! computation happens. Common devices include:
-//! - **CPU**: Central Processing Unit (host memory). Good for sequential logic and small models.
-//! - **GPU**: Graphics Processing Unit (device memory). Excellent for massive parallel matrix operations.
-//! - **TPU**: Tensor Processing Unit. Specialized hardware for ML workloads.
+//! - **CPU (Central Processing Unit)**: The "brain" of your computer. Good for complex logic,
+//!   control flow, and smaller models. `xla-rs` uses the CPU by default.
+//! - **GPU (Graphics Processing Unit)**: Specialized hardware with thousands of cores. Essential
+//!   for training large models due to massive parallelism.
+//! - **TPU (Tensor Processing Unit)**: Google's custom hardware optimized specifically for matrix math.
 //!
-//! Abstracting the device allows the same neural network code to run on a laptop (CPU)
-//! or a cluster of GPUs without modification.
+//! # The `Device` Trait
+//!
+//! This trait allows `xla-rs` to write code that is "device agnostic". You can define a model once,
+//! and run it on CPU, GPU, or even at compile-time (`ConstDevice`) just by changing the generic parameter.
 
 use crate::tensor::{Storage, TensorElem};
 use std::fmt::Debug;
 
 /// A trait representing the underlying storage device for a Tensor.
 ///
-/// Devices determine where the data is stored (e.g., CPU, GPU) and how it is accessed.
-/// Currently, only `Cpu` is implemented.
-///
 /// # Design
 ///
-/// This trait is designed to be extensible. Future implementations could include `Cuda` or `Mps`
-/// devices. The `Storage` associated type allows each device to define its own memory container
-/// (e.g., `Vec<T>` for CPU, `CudaBuffer<T>` for GPU).
+/// Devices must define:
+/// 1. **Storage**: What container holds the data (e.g., `Vec<T>` for CPU).
+/// 2. **Operations**: How to perform basic ops like `transpose` (which might involve moving memory).
 pub trait Device: Clone + Debug + PartialEq + Send + Sync {
     /// The type of storage used by this device.
     type Storage<T>: Storage<T>
@@ -58,14 +57,12 @@ pub trait Device: Clone + Debug + PartialEq + Send + Sync {
 
 /// A CPU Device.
 ///
-/// Represents the standard system CPU. Data is stored in system RAM using `Vec<T>`.
-/// This is the default device for all tensors.
+/// This is the default device. Data is stored in standard system RAM (`Vec<T>`).
 ///
-/// # Performance
-///
-/// Operations on the CPU are generally slower than GPU for large matrix multiplications,
-/// but `xla-rs` uses `rayon` to parallelize operations across all available CPU cores,
-/// providing decent performance for development and inference on smaller models.
+/// # Performance Note
+/// While CPUs are slower than GPUs for massive matrix multiplications, `xla-rs` uses `rayon`
+/// to utilize all CPU cores. This makes it surprisingly fast for inference on "small" LLMs (like Gemma 2B)
+/// on modern laptops.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cpu;
 
@@ -98,7 +95,16 @@ impl Device for Cpu {
 
 /// A Device for compile-time constants.
 ///
-/// Stores data in a fixed-size array `[T; N]`.
+/// # What is this?
+/// This is a unique feature of `xla-rs`. It allows you to define tensors that exist entirely
+/// at compile-time.
+///
+/// # Use Cases
+/// - **Pre-computed Tables**: Sine/Cosine tables for RoPE (Rotary Positional Embeddings).
+/// - **Fixed Weights**: Small filters or masks that never change.
+///
+/// Operations on `ConstDevice` tensors are evaluated by the Rust compiler (const eval), meaning
+/// they have **zero runtime cost**.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ConstDevice<const N: usize>;
 

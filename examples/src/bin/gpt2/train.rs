@@ -140,7 +140,7 @@ fn main() {
     let batch_size = 2;
 
     let mut model = TrainableGPT2::new(vocab_size, pos_size, hidden_dim, output_dim);
-    let optimizer = Sgd::new(0.01);
+    let mut optimizer = Sgd::new(0.01);
     let mut rng = rand::rng();
 
     println!("Starting Training Loop...");
@@ -183,7 +183,7 @@ fn main() {
         {
             let grad_ref = model.wte.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut model.wte.data, grad).unwrap();
+                optimizer.update(0, &mut model.wte.data, grad).unwrap();
             }
         }
         *model.wte.grad.borrow_mut() = None;
@@ -192,7 +192,7 @@ fn main() {
         {
             let grad_ref = model.wpe.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut model.wpe.data, grad).unwrap();
+                optimizer.update(1, &mut model.wpe.data, grad).unwrap();
             }
         }
         *model.wpe.grad.borrow_mut() = None;
@@ -203,7 +203,7 @@ fn main() {
             {
                 let grad_ref = layer.weight.grad.borrow();
                 if let Some(grad) = grad_ref.as_ref() {
-                    optimizer.update(&mut layer.weight.data, grad).unwrap();
+                    optimizer.update(2, &mut layer.weight.data, grad).unwrap();
                 }
             }
             *layer.weight.grad.borrow_mut() = None;

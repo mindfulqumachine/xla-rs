@@ -4,8 +4,23 @@ use rayon::prelude::*;
 
 /// RMSNorm (Root Mean Square Layer Normalization).
 ///
-/// Normalizes the input tensor using the root mean square of the elements.
-/// Used in modern LLM architectures like Gemma and Llama.
+/// # Mathematical Definition
+///
+/// $$y = \frac{x}{\text{RMS}(x)} \cdot w$$
+///
+/// where:
+/// $$ \text{RMS}(x) = \sqrt{\frac{1}{N} \sum_{i=1}^{N} x_i^2 + \epsilon} $$
+///
+/// - $w$ is the learnable scale parameter (gain).
+/// - $\epsilon$ is a small constant for numerical stability.
+///
+/// # ML Context
+///
+/// RMSNorm is a simplified version of LayerNorm. It re-scales the input to have unit root-mean-square,
+/// but does **not** re-center it (no mean subtraction).
+///
+/// - **Why?** It's computationally cheaper than LayerNorm and works just as well for Transformers.
+/// - **Where?** Used in **Gemma**, **Llama**, and **GLaM**.
 #[derive(Debug)]
 pub struct RMSNorm<T: TensorElem> {
     pub weight: Tensor<T, 1, Cpu>,
@@ -63,9 +78,23 @@ impl<T: TensorElem + Float> RMSNorm<T> {
 
 /// Layer Normalization.
 ///
-/// Normalizes the input tensor using the mean and standard deviation of the elements.
-/// Used in architectures like GPT-2, BERT, etc.
-/// Formula: `y = (x - mean) / sqrt(var + eps) * gamma + beta`
+/// # Mathematical Definition
+///
+/// $$y = \frac{x - \mu}{\sqrt{\sigma^2 + \epsilon}} \cdot \gamma + \beta$$
+///
+/// where:
+/// - $\mu$ is the mean of the input.
+/// - $\sigma^2$ is the variance.
+/// - $\gamma$ (weight) is the learnable scale.
+/// - $\beta$ (bias) is the learnable shift.
+///
+/// # ML Context
+///
+/// LayerNorm stabilizes training by ensuring that the inputs to a layer have a consistent distribution
+/// (mean 0, variance 1). Unlike Batch Normalization, it works independently for each sample, making it
+/// ideal for RNNs and Transformers.
+///
+/// - **Where?** Used in **GPT-2**, **BERT**, and the original Transformer paper.
 #[derive(Debug)]
 pub struct LayerNorm<T: TensorElem> {
     pub weight: Tensor<T, 1, Cpu>,

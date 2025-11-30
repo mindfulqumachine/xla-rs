@@ -1,31 +1,48 @@
 //! # xla-rs
 //!
 //! `xla-rs` is a pure Rust implementation of tensor operations and neural network building blocks,
-//! designed for educational purposes and understanding the internals of LLM inference.
+//! designed for **educational purposes** to help students and engineers understand the internals of LLM inference.
 //!
-//! Despite the name, it currently runs on **CPU only** and does not yet integrate with the XLA compiler.
+//! Unlike production frameworks (PyTorch, TensorFlow) that wrap C++/CUDA kernels, `xla-rs` implements
+//! everything in readable Rust. This makes it an excellent resource for learning how deep learning
+//! actually works "under the hood."
+//!
+//! > [!NOTE]
+//! > **Educational vs. Production**: This crate prioritizes code readability and simplicity over maximum performance.
+//! > While we use some optimizations (like `rayon` for parallelism), it is not intended to replace
+//! > optimized frameworks for large-scale training.
 //!
 //! ## Modules
 //!
-//! - [`mod@tensor`]: Core N-dimensional tensor implementation.
+//! - [`mod@tensor`]: The foundation. N-dimensional arrays with broadcasting and arithmetic.
+//! - [`autograd`]: Automatic differentiation engine (reverse-mode) for training.
 //! - [`nn`]: Neural network layers (Linear, RMSNorm, MoE, etc.).
-//! - `models`: Model architectures (e.g., Gemma) (requires `models` feature).
+//! - `models`: Full model architectures (e.g., Gemma, GPT-2) (requires `models` feature).
 //!
-//! ## Example
+//! ## Quick Start
+//!
+//! Here's how to create a tensor and perform a simple operation:
 //!
 //! ```rust
 //! use xla_rs::tensor::Tensor;
 //!
+//! // 1. Create a 2D tensor (matrix)
 //! let data = vec![1.0, 2.0, 3.0, 4.0];
 //! let tensor = Tensor::<f32, 2>::new(data, [2, 2]).unwrap();
-//! println!("{:?}", tensor);
+//! println!("Tensor:\n{:?}", tensor);
 //!
-//! // Zero-overhead compile-time operations
+//! // 2. Zero-overhead compile-time operations (Expert Feature)
+//! // `xla-rs` allows defining tensors and operations that are evaluated at compile-time!
 //! use xla_rs::tensor::ConstDevice;
 //!
 //! const A: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const([1.0, 2.0, 3.0, 4.0], [2, 2]);
 //! const B: Tensor<f32, 2, ConstDevice<4>> = A.transpose(); // Evaluated at compile time!
 //! ```
+//!
+//! > [!TIP]
+//! > **Expert Note on `ConstDevice`**: The `ConstDevice` allows us to burn-in weights or pre-compute
+//! > constants (like positional embeddings) directly into the binary, potentially reducing startup time
+//! > and runtime overhead.
 
 /// Macro for creating a Tensor with compile-time shape checking.
 ///
@@ -69,6 +86,7 @@ macro_rules! tensor {
 }
 
 pub mod autograd;
+pub mod data;
 pub mod distributed;
 pub use autograd::Variable;
 pub use tensor::{ConstDevice, Cpu, Device, Storage, Tensor, TensorElem, TensorError, TensorOps};

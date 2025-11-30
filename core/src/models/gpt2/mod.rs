@@ -1,3 +1,26 @@
+//! GPT-2 Model Architecture.
+//!
+//! # What is GPT-2?
+//!
+//! GPT-2 (Generative Pre-trained Transformer 2) is a large language model released by OpenAI in 2019.
+//! It demonstrated that language models could perform zero-shot learning on various tasks.
+//!
+//! # Architecture Details
+//!
+//! GPT-2 is a decoder-only Transformer with:
+//! - **Absolute Positional Embeddings**: Learned vectors added to input embeddings.
+//! - **LayerNorm**: Applied *before* attention and MLP (Pre-Norm), unlike the original Transformer (Post-Norm).
+//! - **GELU**: Gaussian Error Linear Unit activation.
+//! - **Causal Attention**: Standard masked self-attention.
+//!
+//! # This Implementation
+//!
+//! This implementation provides a `GPT2LMHeadModel` compatible with Hugging Face weights.
+//! It supports:
+//! - Loading weights from `safetensors`.
+//! - Greedy generation.
+//! - Standard 124M (gpt2) configuration.
+
 use crate::models::traits::CausalLM;
 use crate::nn::transformer::attention::MultiHeadAttention;
 use crate::nn::{Activation, Embedding, LayerNorm, Linear};
@@ -8,13 +31,22 @@ use safetensors::SafeTensors;
 use std::fs::File;
 use std::ops::Add;
 
+/// Configuration for the GPT-2 Model.
+///
+/// Defines the hyperparameters of the model architecture.
 #[derive(Debug, Clone)]
 pub struct GPT2Config {
+    /// Vocabulary size (usually 50257).
     pub vocab_size: usize,
+    /// Maximum sequence length (context window), usually 1024.
     pub n_positions: usize,
+    /// Dimension of the hidden states (d_model), usually 768.
     pub n_embd: usize,
+    /// Number of hidden layers, usually 12.
     pub n_layer: usize,
+    /// Number of attention heads, usually 12.
     pub n_head: usize,
+    /// Epsilon for LayerNorm.
     pub layer_norm_epsilon: f32,
 }
 
@@ -31,6 +63,11 @@ impl GPT2Config {
     }
 }
 
+/// Multi-Layer Perceptron (MLP) block for GPT-2.
+///
+/// Uses a standard expansion-contraction structure with GELU activation.
+/// Note: GPT-2 uses a "Conv1D" layer in the original implementation, which is mathematically
+/// equivalent to a Linear layer but with transposed weights compared to PyTorch's default.
 #[derive(Debug)]
 pub struct GPT2MLP<T: TensorElem> {
     pub c_fc: Linear<T>,
@@ -45,6 +82,14 @@ impl<T: TensorElem + Float> GPT2MLP<T> {
     }
 }
 
+/// A single Transformer Block for GPT-2.
+///
+/// Contains:
+/// 1. **LayerNorm 1**: Pre-attention normalization.
+/// 2. **Self-Attention**: Causal masked attention.
+/// 3. **LayerNorm 2**: Pre-MLP normalization.
+/// 4. **MLP**: Feed-forward network.
+/// 5. **Residuals**: Added after Attention and MLP.
 #[derive(Debug)]
 pub struct GPT2Block<T: TensorElem> {
     pub ln_1: LayerNorm<T>,
@@ -78,6 +123,12 @@ impl<T: TensorElem + Float> GPT2Block<T> {
     }
 }
 
+/// The full GPT-2 Model Body.
+///
+/// Consists of embeddings (token + position), a stack of `GPT2Block` layers, and a final LayerNorm.
+/// This struct outputs the final hidden states.
+///
+/// Shape: `[Batch, SeqLen, HiddenSize]`
 #[derive(Debug)]
 pub struct GPT2Model<T: TensorElem> {
     pub wte: Embedding<T>,
@@ -121,6 +172,14 @@ impl<T: TensorElem + Float> GPT2Model<T> {
     }
 }
 
+/// GPT-2 for Causal Language Modeling.
+///
+/// This is the top-level struct for text generation. It wraps the `GPT2Model` with
+/// a language model head (linear projection to vocab size).
+///
+/// # Weight Tying
+/// In GPT-2, the weights of the LM Head are often tied to the Input Embeddings (`wte`).
+/// This implementation supports both tied and untied weights (loaded via `load_weights`).
 #[derive(Debug)]
 pub struct GPT2LMHeadModel<T: TensorElem> {
     pub transformer: GPT2Model<T>,

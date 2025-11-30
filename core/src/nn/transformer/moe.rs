@@ -1,9 +1,6 @@
-//! # Mixture of Experts (MoE)
+//! Mixture of Experts (MoE).
 //!
-//! This module implements a sparse Mixture of Experts (MoE) layer, a technique to scale model capacity
-//! without proportionally increasing computational cost.
-//!
-//! ## What is Mixture of Experts?
+//! # What is Mixture of Experts?
 //!
 //! In a standard dense model, every input token is processed by every parameter in the network.
 //! In an MoE model, the "FeedForward" block is replaced by a set of "Experts" (usually smaller FeedForward networks)
@@ -14,25 +11,21 @@
 //! This allows the model to have a massive number of parameters (high capacity) while only using a fraction
 //! of them per token (low inference latency).
 //!
-//! ## Implementation Details
+//! # Implementation Details
 //!
 //! This implementation provides:
 //! - **`TopKRouter`**: A learnable gating mechanism that projects inputs to expert logits and selects the top-k indices.
 //! - **`MoELayer`**: The container that holds the router and the list of experts.
 //! - **`Expert` Trait**: An abstraction for what constitutes an expert (typically an MLP).
 //!
-//! ### Routing Mechanism
+//! # Trade-offs
 //!
-//! We use a standard Top-K routing mechanism:
-//! 1.  Compute logits: $H(x) = x \cdot W_{gate}$
-//! 2.  Select Top-K: Identify the $k$ experts with the highest logits.
-//! 3.  Normalize: Apply Softmax to the selected logits to get routing weights.
-//! 4.  Dispatch: Send tokens to their respective experts.
-//! 5.  Combine: Weighted sum of expert outputs.
+//! - **Pros**: Higher capacity, faster inference than dense models of same size.
+//! - **Cons**: Complex to train (load balancing), memory intensive (must store all experts).
 //!
-//! ## Trade-offs and Design Decisions
+//! # Design Decisions
 //!
-//! ### 1. Explicit Loops vs. Scatter/Gather
+//! ## 1. Explicit Loops vs. Scatter/Gather
 //! **Decision**: We use explicit iteration and grouping (bucketing) of tokens per expert rather than
 //! optimized scatter/gather tensor operations.
 //!
@@ -43,19 +36,12 @@
 //!   inside the experts. Explicit grouping allows us to use standard dense matrix multiplication for each expert,
 //!   which is well-optimized.
 //!
-//! ### 2. Dynamic Control Flow
+//! ## 2. Dynamic Control Flow
 //! **Decision**: The routing logic dynamically constructs batches for each expert at runtime.
 //!
 //! **Why?**
 //! - This avoids padding and wasted computation associated with fixed-size expert buffers (common in TPU/GPU implementations).
 //! - It handles load imbalance naturally (though extreme imbalance can still hurt performance due to stragglers).
-//!
-//! ### 3. Generic Experts
-//! **Decision**: Experts are generic modules implementing the `Expert` trait.
-//!
-//! **Why?**
-//! - Allows experimenting with different expert architectures (e.g., different activation functions,
-//!   or even nested MoEs) without changing the routing logic.
 
 use crate::nn::{Linear, Module};
 use crate::tensor::{Cpu, Result, Tensor, TensorElem};

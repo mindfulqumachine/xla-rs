@@ -1,3 +1,25 @@
+//! The Autograd Engine.
+//!
+//! # What does the Engine do?
+//!
+//! The engine is responsible for the **Backward Pass**. Its job is to:
+//! 1. **Traverse** the computation graph starting from the loss.
+//! 2. **Sort** the nodes topologically (ensuring we compute gradients for parents *after* children).
+//! 3. **Execute** the `.backward()` method on each node to propagate gradients.
+//!
+//! # Topological Sort
+//!
+//! We use a Depth-First Search (DFS) approach to linearize the graph.
+//! If node A depends on node B (A -> B), then A must be processed *before* B in the backward pass
+//! (because A passes gradient to B).
+//!
+//! > [!NOTE]
+//! > In standard graph theory, if A depends on B, B comes before A in topological sort.
+//! > But in backprop, "dependency" means "data flow".
+//! > Forward: Input -> Output.
+//! > Backward: Output -> Input.
+//! > So we process Output first, then Input.
+
 use super::GraphNode;
 use std::collections::HashSet;
 use std::rc::Rc;

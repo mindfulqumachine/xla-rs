@@ -1,28 +1,36 @@
 //! Storage abstraction for Tensors.
 //!
-//! This module defines the `Storage` trait, which abstracts over the underlying data container.
+//! # What is Storage?
 //!
-//! # ML Context
+//! "Storage" is the container that holds the raw numerical data of a tensor.
+//! While a `Tensor` struct holds metadata like shape and strides, the `Storage` holds the actual bits.
 //!
-//! Tensors need to store their elements somewhere. "Storage" is the container that holds
-//! the raw data.
-//! - **Contiguous Memory**: Most tensor operations (like matrix multiplication) rely on data
-//!   being stored contiguously in memory for cache efficiency and SIMD usage.
-//! - **Abstraction**: By abstracting storage, we can support different backends (CPU `Vec`,
-//!   GPU buffers, mmap files) without changing the high-level Tensor API.
+//! - **Contiguous Memory**: Deep learning operations (like matrix multiplication) are fastest when
+//!   data is stored contiguously in memory. This allows CPUs/GPUs to load data efficiently into caches
+//!   and registers (SIMD).
+//! - **Abstraction**: By defining a `Storage` trait, `xla-rs` can support multiple backends:
+//!     - `Vec<T>`: Dynamic heap allocation (standard CPU tensor).
+//!     - `[T; N]`: Static stack allocation (compile-time tensor).
+//!     - (Future) `CudaBuffer`: GPU memory.
+//!     - (Future) `Mmap`: Memory-mapped files for loading huge models.
+//!
+//! # The `Storage` Trait
+//!
+//! This trait defines the minimal interface required for a container to back a Tensor.
+//! Crucially, it must provide access to the data as a **slice** (`&[T]`), which is the standard
+//! Rust way to view a contiguous block of memory.
 
 use crate::tensor::TensorElem;
 use std::fmt::Debug;
 
 /// A trait for the underlying data storage.
 ///
-/// Abstracts over the container used to hold tensor data.
-/// For `Cpu` device, this is typically `Vec<T>`.
+/// # Design Philosophy
 ///
-/// # Requirements
+/// We separate `Storage` from `Tensor` to allow the same high-level API to work on different
+/// hardware or memory layouts.
 ///
-/// Implementations must provide access to the raw data as slices. This allows
-/// efficient interaction with low-level linear algebra routines.
+/// - `T`: The element type (e.g., `f32`).
 pub trait Storage<T>: Clone + Debug + Send + Sync {
     /// Returns the data as an immutable slice.
     fn as_slice(&self) -> &[T];
@@ -51,6 +59,11 @@ pub trait Storage<T>: Clone + Debug + Send + Sync {
     }
 }
 
+/// Implementation of Storage for `Vec<T>`.
+///
+/// This is the standard storage for CPU tensors.
+/// - **Pros**: Dynamic size (can be resized), heap allocated (can be large).
+/// - **Cons**: Slight allocation overhead.
 impl<T: TensorElem> Storage<T> for Vec<T> {
     fn as_slice(&self) -> &[T] {
         self
@@ -63,6 +76,11 @@ impl<T: TensorElem> Storage<T> for Vec<T> {
     }
 }
 
+/// Implementation of Storage for fixed-size arrays `[T; N]`.
+///
+/// This is used for `ConstDevice` tensors.
+/// - **Pros**: Stack allocated (zero allocation overhead), size known at compile time.
+/// - **Cons**: Size must be fixed at compile time, stack size limits (don't put 1GB here!).
 impl<T: TensorElem, const N: usize> Storage<T> for [T; N] {
     fn as_slice(&self) -> &[T] {
         self

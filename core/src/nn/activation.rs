@@ -1,9 +1,23 @@
+//! Activation Functions.
+//!
+//! # What is an Activation Function?
+//!
+//! Activation functions introduce **non-linearity** into neural networks. Without them, a neural network
+//! (no matter how deep) would just be a single linear transformation (matrix multiplication).
+//!
+//! - **ReLU**: $f(x) = \max(0, x)$. Fast, simple, used in older models.
+//! - **GELU**: Gaussian Error Linear Unit. Smoother than ReLU. Used in **GPT-2**, **BERT**.
+//! - **SiLU** (Swish): Sigmoid Linear Unit. $x \cdot \sigma(x)$. Used in **Llama**, **Gemma**.
+
 use crate::tensor::{Cpu, Tensor, TensorElem};
 use num_traits::Float;
 
 /// Computes the SiLU (Sigmoid Linear Unit) activation function.
 ///
 /// $$ \text{SiLU}(x) = x \cdot \sigma(x) = \frac{x}{1 + e^{-x}} $$
+///
+/// Also known as "Swish". It is a smooth, non-monotonic function that consistently outperforms ReLU
+/// on deep models.
 pub fn silu<T: TensorElem + Float>(x: T) -> T {
     let val = x.to_f32().unwrap();
     let sig = 1.0 / (1.0 + (-val).exp());
@@ -11,6 +25,8 @@ pub fn silu<T: TensorElem + Float>(x: T) -> T {
 }
 
 /// Activation functions namespace.
+///
+/// Provides element-wise activation functions for Tensors.
 pub struct Activation;
 
 impl Activation {
@@ -30,7 +46,11 @@ impl Activation {
 }
 
 /// Computes the GELU (Gaussian Error Linear Unit) activation function.
-/// Using the tanh approximation: 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+///
+/// $$ \text{GELU}(x) \approx 0.5 x (1 + \tanh[\sqrt{2/\pi} (x + 0.044715 x^3)]) $$
+///
+/// This is the "tanh approximation" of GELU, which is faster to compute than the exact error function version.
+/// It weights inputs by their magnitude, allowing small negative values to have a non-zero gradient (unlike ReLU).
 pub fn gelu<T: TensorElem + Float>(x: T) -> T {
     let x_f = x.to_f32().unwrap();
     let sqrt_2_over_pi = (2.0f32 / std::f32::consts::PI).sqrt();

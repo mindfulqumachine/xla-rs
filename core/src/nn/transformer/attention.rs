@@ -4,6 +4,31 @@ use crate::tensor::{Cpu, Result, Tensor, TensorElem, TensorOps};
 use num_traits::Float;
 use rayon::prelude::*;
 
+/// Multi-Head Attention (MHA).
+///
+/// # What is Attention?
+///
+/// Attention allows the model to "focus" on relevant parts of the input sequence when producing an output.
+///
+/// $$ \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V $$
+///
+/// - **Query ($Q$)**: What I'm looking for.
+/// - **Key ($K$)**: What I have (index).
+/// - **Value ($V$)**: What I have (content).
+///
+/// # Multi-Head
+///
+/// Instead of one attention mechanism, we run $h$ of them in parallel (heads). This allows the model
+/// to attend to different types of relationships (e.g., one head focuses on syntax, another on semantics).
+///
+/// # Grouped Query Attention (GQA)
+///
+/// This implementation supports GQA, where multiple query heads share the same Key/Value heads.
+/// This reduces memory bandwidth during inference (KV cache size).
+/// - `num_heads`: Number of Query heads.
+/// - `num_kv_heads`: Number of Key/Value heads.
+/// - If `num_heads == num_kv_heads`: Standard MHA.
+/// - If `num_kv_heads == 1`: Multi-Query Attention (MQA).
 #[derive(Debug)]
 pub struct MultiHeadAttention<T: TensorElem> {
     pub q_proj: Linear<T>,
@@ -41,6 +66,15 @@ impl<T: TensorElem + Float> MultiHeadAttention<T> {
         }
     }
 
+    /// Performs the forward pass of Multi-Head Attention.
+    ///
+    /// # Steps
+    /// 1. **Projections**: Apply linear layers to get Q, K, V.
+    /// 2. **Reshape & Transpose**: Split into heads `[B, S, H, D]` -> `[B, H, S, D]`.
+    /// 3. **RoPE**: Apply Rotary Positional Embeddings to Q and K.
+    /// 4. **Repeat KV**: If GQA/MQA, repeat K/V heads to match Q heads.
+    /// 5. **Attention**: Compute `softmax(Q @ K.T / sqrt(d)) @ V`.
+    /// 6. **Output**: Concatenate heads and apply output projection.
     pub fn forward(
         &self,
         x: &Tensor<T, 3, Cpu>,

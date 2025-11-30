@@ -1,11 +1,52 @@
-use super::backend::CollectiveBackend;
+use crate::distributed::backend::CollectiveBackend;
 use crate::tensor::{Cpu, Result, Tensor, TensorElem};
 use crossbeam::channel::{Receiver, Sender};
 
 /// A CPU-based collective backend for educational purposes.
 ///
-/// Implements the **Ring All-Reduce** algorithm using `crossbeam` channels.
-/// This simulates the data movement that happens on GPUs via NCCL.
+/// This struct implements the **Ring All-Reduce** algorithm using `crossbeam` channels.
+/// It is designed to help you understand how distributed training works "under the hood"
+/// without needing a GPU cluster.
+///
+/// # 💍 The Ring All-Reduce Algorithm
+///
+/// The Ring All-Reduce is a bandwidth-optimal algorithm for summing arrays across $N$ devices.
+/// It proceeds in two phases: **Scatter-Reduce** and **All-Gather**.
+///
+/// ## Phase 1: Scatter-Reduce
+///
+/// In this phase, we scatter the data chunks and reduce them as they travel around the ring.
+/// After $N-1$ steps, each rank holds a *fully reduced* (summed) chunk of the data.
+///
+/// **Example (3 Ranks, Array size 3)**:
+/// Initial state:
+/// - Rank 0: `[a0, b0, c0]`
+/// - Rank 1: `[a1, b1, c1]`
+/// - Rank 2: `[a2, b2, c2]`
+///
+/// **Step 1**: Rank $i$ sends chunk $i$ to $(i+1)$.
+/// - Rank 0 sends `a0` to Rank 1. Rank 1 computes `a1 + a0`.
+/// - Rank 1 sends `b1` to Rank 2. Rank 2 computes `b2 + b1`.
+/// - Rank 2 sends `c2` to Rank 0. Rank 0 computes `c0 + c2`.
+///
+/// After $N-1$ steps, each rank has one complete sum:
+/// - Rank 0 has `Sum(c)`
+/// - Rank 1 has `Sum(a)`
+/// - Rank 2 has `Sum(b)`
+///
+/// ## Phase 2: All-Gather
+///
+/// Now we share the fully reduced chunks so everyone has the full result.
+///
+/// **Step 1**: Rank $i$ sends its completed chunk to $(i+1)$.
+/// - Rank 0 sends `Sum(c)` to Rank 1. Rank 1 now has `Sum(a)` and `Sum(c)`.
+///
+/// ## 🚀 Performance Note
+///
+/// - **Latency**: $2(N-1)$ steps.
+/// - **Bandwidth**: Each device sends and receives $\frac{2(N-1)}{N} \times Size$ bytes.
+/// - As $N \to \infty$, the data transferred per device approaches $2 \times Size$.
+/// - This is efficient because the bandwidth usage is constant per device, regardless of $N$!
 pub struct CpuBackend {
     rank: usize,
     world_size: usize,

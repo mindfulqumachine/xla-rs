@@ -97,7 +97,7 @@ fn main() {
     let mut fc1 = TrainableLoraLinear::<f32>::new(hidden_dim, hidden_dim, r, alpha);
     let mut fc2 = TrainableLoraLinear::<f32>::new(hidden_dim, output_dim, r, alpha);
 
-    let optimizer = Sgd::new(0.01);
+    let mut optimizer = Sgd::new(0.01);
 
     println!("Starting LoRA Loop...");
 
@@ -142,7 +142,7 @@ fn main() {
         {
             let grad_ref = fc1.lora_a.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut fc1.lora_a.data, grad).unwrap();
+                optimizer.update(0, &mut fc1.lora_a.data, grad).unwrap();
             }
         }
         *fc1.lora_a.grad.borrow_mut() = None;
@@ -150,7 +150,7 @@ fn main() {
         {
             let grad_ref = fc1.lora_b.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut fc1.lora_b.data, grad).unwrap();
+                optimizer.update(1, &mut fc1.lora_b.data, grad).unwrap();
             }
         }
         *fc1.lora_b.grad.borrow_mut() = None;
@@ -158,7 +158,7 @@ fn main() {
         {
             let grad_ref = fc2.lora_a.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut fc2.lora_a.data, grad).unwrap();
+                optimizer.update(2, &mut fc2.lora_a.data, grad).unwrap();
             }
         }
         *fc2.lora_a.grad.borrow_mut() = None;
@@ -166,7 +166,7 @@ fn main() {
         {
             let grad_ref = fc2.lora_b.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut fc2.lora_b.data, grad).unwrap();
+                optimizer.update(3, &mut fc2.lora_b.data, grad).unwrap();
             }
         }
         *fc2.lora_b.grad.borrow_mut() = None;

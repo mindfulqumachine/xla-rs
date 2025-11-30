@@ -60,7 +60,7 @@ fn main() {
     let mut fc1 = TrainableLinear::<f32>::new(hidden_dim, hidden_dim);
     let mut fc2 = TrainableLinear::<f32>::new(hidden_dim, output_dim);
 
-    let optimizer = Sgd::new(0.01);
+    let mut optimizer = Sgd::new(0.01);
 
     println!("Starting SFT Loop...");
 
@@ -129,7 +129,7 @@ fn main() {
         {
             let grad_ref = embed.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut embed.data, grad).unwrap();
+                optimizer.update(0, &mut embed.data, grad).unwrap();
             }
         }
         *embed.grad.borrow_mut() = None;
@@ -137,7 +137,7 @@ fn main() {
         {
             let grad_ref = fc1.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut fc1.weight.data, grad).unwrap();
+                optimizer.update(1, &mut fc1.weight.data, grad).unwrap();
             }
         }
         *fc1.weight.grad.borrow_mut() = None;
@@ -145,7 +145,7 @@ fn main() {
         {
             let grad_ref = fc2.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(&mut fc2.weight.data, grad).unwrap();
+                optimizer.update(2, &mut fc2.weight.data, grad).unwrap();
             }
         }
         *fc2.weight.grad.borrow_mut() = None;

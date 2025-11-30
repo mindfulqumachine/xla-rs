@@ -74,7 +74,7 @@ fn main() {
     // Reference Model (Frozen - same init for demo, usually pretrained)
     let ref_model = SimpleModel::<f32>::new(vocab_size, hidden_dim, vocab_size);
 
-    let optimizer = Sgd::new(0.01);
+    let mut optimizer = Sgd::new(0.01);
     let mut rng = rand::rng();
 
     println!("Starting DPO Loop...");
@@ -164,7 +164,7 @@ fn main() {
             let grad_ref = policy_model.embed.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
                 optimizer
-                    .update(&mut policy_model.embed.data, grad)
+                    .update(0, &mut policy_model.embed.data, grad)
                     .unwrap();
             }
         }
@@ -174,7 +174,7 @@ fn main() {
             let grad_ref = policy_model.fc1.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
                 optimizer
-                    .update(&mut policy_model.fc1.weight.data, grad)
+                    .update(1, &mut policy_model.fc1.weight.data, grad)
                     .unwrap();
             }
         }
@@ -184,7 +184,7 @@ fn main() {
             let grad_ref = policy_model.fc2.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
                 optimizer
-                    .update(&mut policy_model.fc2.weight.data, grad)
+                    .update(2, &mut policy_model.fc2.weight.data, grad)
                     .unwrap();
             }
         }
