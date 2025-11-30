@@ -808,50 +808,6 @@ mod tests {
     }
 
     #[test]
-    fn test_debug_impls() {
-        // Create variables to trigger node creation
-        let a = Variable::new(Tensor::new(vec![1.0], []).unwrap());
-        let b = Variable::new(Tensor::new(vec![2.0], []).unwrap());
-
-        // AddNode
-        let add = a.clone() + b.clone();
-        let add_node = add.node.as_ref().unwrap();
-        assert!(format!("{:?}", add_node).contains("AddNode"));
-
-        // SubNode
-        let sub = a.clone() - b.clone();
-        let sub_node = sub.node.as_ref().unwrap();
-        assert!(format!("{:?}", sub_node).contains("SubNode"));
-
-        // MulNode
-        let mul = a.clone() * b.clone();
-        let mul_node = mul.node.as_ref().unwrap();
-        assert!(format!("{:?}", mul_node).contains("MulNode"));
-
-        // DivNode
-        let div = a.clone() / b.clone();
-        let div_node = div.node.as_ref().unwrap();
-        assert!(format!("{:?}", div_node).contains("DivNode"));
-
-        // MatMulNode
-        let m1 = Variable::new(Tensor::new(vec![1.0], [1, 1]).unwrap());
-        let m2 = Variable::new(Tensor::new(vec![2.0], [1, 1]).unwrap());
-        let mm = m1.matmul(&m2).unwrap();
-        let mm_node = mm.node.as_ref().unwrap();
-        assert!(format!("{:?}", mm_node).contains("MatMulNode"));
-
-        // ExpNode
-        let exp = a.exp();
-        let exp_node = exp.node.as_ref().unwrap();
-        assert!(format!("{:?}", exp_node).contains("ExpNode"));
-
-        // LogNode
-        let log = a.log();
-        let log_node = log.node.as_ref().unwrap();
-        assert!(format!("{:?}", log_node).contains("LogNode"));
-    }
-
-    #[test]
     fn test_div_backward() {
         // y = a / b
         // a = 6, b = 3

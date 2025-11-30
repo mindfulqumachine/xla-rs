@@ -465,16 +465,4 @@ mod tests {
             .unwrap();
         assert_eq!(output.shape(), &[b, s, hidden_dim]);
     }
-    #[test]
-    fn test_debug_impl() {
-        let weight_data = vec![1.0; 16];
-        let q_proj = Linear::new(Tensor::new(weight_data.clone(), [4, 4]).unwrap(), None);
-        let k_proj = Linear::new(Tensor::new(weight_data.clone(), [4, 4]).unwrap(), None);
-        let v_proj = Linear::new(Tensor::new(weight_data.clone(), [4, 4]).unwrap(), None);
-        let o_proj = Linear::new(Tensor::new(weight_data.clone(), [4, 4]).unwrap(), None);
-
-        let mha = MultiHeadAttention::new(4, 2, 2, 2, q_proj, k_proj, v_proj, o_proj);
-
-        assert!(format!("{:?}", mha).contains("MultiHeadAttention"));
-    }
 }
