@@ -173,4 +173,57 @@ mod tests {
         assert_eq!(device, device_clone);
         assert_eq!(format!("{:?}", device), "Cpu");
     }
+
+    #[test]
+    fn test_const_device_name() {
+        let device = ConstDevice::<4>;
+        assert_eq!(device.name(), "ConstDevice");
+    }
+
+    #[test]
+    fn test_cpu_transpose_error() {
+        let data = vec![1.0];
+        let shape = [1];
+        let result = Cpu::transpose(&data, &shape);
+        assert!(matches!(
+            result,
+            Err(crate::tensor::TensorError::Unsupported(_))
+        ));
+    }
+
+    #[test]
+    fn test_const_device_transpose_error() {
+        let data = [1.0];
+        let shape = [1];
+        let result = ConstDevice::<1>::transpose(&data, &shape);
+        assert!(matches!(
+            result,
+            Err(crate::tensor::TensorError::Unsupported(_))
+        ));
+    }
+
+    #[test]
+    fn test_const_device_transpose_success() {
+        let data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let shape = [2, 3];
+        let result = ConstDevice::<6>::transpose(&data, &shape).unwrap();
+        // [1 2 3]
+        // [4 5 6]
+        // ->
+        // [1 4]
+        // [2 5]
+        // [3 6]
+        assert_eq!(result, [1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
+    }
+
+    #[test]
+    fn test_cpu_transpose_mismatch() {
+        let data = vec![1.0, 2.0];
+        let shape = [2, 2]; // Size 4, data 2 -> Mismatch
+        let result = Cpu::transpose(&data, &shape);
+        assert!(matches!(
+            result,
+            Err(crate::tensor::TensorError::ShapeMismatch { .. })
+        ));
+    }
 }

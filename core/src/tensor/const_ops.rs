@@ -9,3 +9,14 @@ pub const fn const_f32_add(a: f32, b: f32) -> f32 {
 pub const fn const_f32_mul(a: f32, b: f32) -> f32 {
     SoftF32(a).mul(SoftF32(b)).to_f32()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_const_ops() {
+        assert_eq!(const_f32_add(1.0, 2.0), 3.0);
+        assert_eq!(const_f32_mul(2.0, 3.0), 6.0);
+    }
+}

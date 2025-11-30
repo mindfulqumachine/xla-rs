@@ -138,4 +138,24 @@ mod tests {
         storage.copy_from_slice(&[3.0, 4.0]);
         assert_eq!(storage.as_slice(), &[3.0, 4.0]);
     }
+
+    #[test]
+    fn test_array_storage() {
+        let mut storage = [1.0, 2.0, 3.0];
+
+        // Test as_slice
+        assert_eq!(storage.as_slice(), &[1.0, 2.0, 3.0]);
+
+        // Test len
+        assert_eq!(storage.len(), 3);
+        assert!(!storage.is_empty());
+
+        // Test as_mut_slice
+        storage.as_mut_slice()[0] = 10.0;
+        assert_eq!(storage.as_slice(), &[10.0, 2.0, 3.0]);
+
+        // Test copy_from_slice
+        storage.copy_from_slice(&[4.0, 5.0, 6.0]);
+        assert_eq!(storage.as_slice(), &[4.0, 5.0, 6.0]);
+    }
 }

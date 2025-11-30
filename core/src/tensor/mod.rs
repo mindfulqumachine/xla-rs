@@ -56,18 +56,12 @@ pub enum TensorError {
         expected: Vec<usize>,
         got: Vec<usize>,
     },
-    /// Broadcasting is not possible between the given shapes.
-    #[error("Incompatible shapes for broadcasting: {0:?} and {1:?}")]
-    BroadcastError(Vec<usize>, Vec<usize>),
     /// An index is out of bounds for the given shape.
     #[error("Index out of bounds: index {index:?} for shape {shape:?}")]
     IndexOutOfBounds {
         index: Vec<usize>,
         shape: Vec<usize>,
     },
-    /// Operations between tensors on different devices are not allowed.
-    #[error("Device mismatch")]
-    DeviceMismatch,
     /// The requested operation is not supported (e.g., for a specific rank or type).
     #[error("Unsupported operation: {0}")]
     Unsupported(String),
@@ -696,12 +690,6 @@ mod tests {
             "Shape mismatch: expected [2, 2], got [4]"
         );
 
-        let err = TensorError::BroadcastError(vec![2, 3], vec![2, 2]);
-        assert_eq!(
-            format!("{}", err),
-            "Incompatible shapes for broadcasting: [2, 3] and [2, 2]"
-        );
-
         let err = TensorError::IndexOutOfBounds {
             index: vec![3],
             shape: vec![2],
@@ -711,11 +699,15 @@ mod tests {
             "Index out of bounds: index [3] for shape [2]"
         );
 
-        let err = TensorError::DeviceMismatch;
-        assert_eq!(format!("{}", err), "Device mismatch");
-
         let err = TensorError::Unsupported("foo".to_string());
         assert_eq!(format!("{}", err), "Unsupported operation: foo");
+    }
+
+    #[test]
+    fn test_tensor_error_debug_fmt() {
+        let err = TensorError::Unsupported("foo".to_string());
+        let debug_str = format!("{:?}", err);
+        assert!(debug_str.contains("Unsupported"));
     }
 
     #[test]
@@ -735,52 +727,98 @@ mod tests {
         assert!(debug_str.contains("device"));
         assert!(debug_str.contains("CPU"));
     }
+
+    #[test]
+    fn test_const_tensor_debug() {
+        let data: [f32; 1] = [1.0];
+        let t: Tensor<f32, 1, ConstDevice<1>> = Tensor::new_const(data, [1]);
+        let debug_str = format!("{:?}", t);
+        assert!(debug_str.contains("Tensor"));
+        assert!(debug_str.contains("ConstDevice"));
+    }
     #[test]
     fn test_const_matmul() {
         // A: [2, 3]
         // 1 2 3
         // 4 5 6
-        const A: Tensor<f32, 2, ConstDevice<6>> =
+        let a: Tensor<f32, 2, ConstDevice<6>> =
             Tensor::new_const([1.0, 2.0, 3.0, 4.0, 5.0, 6.0], [2, 3]);
 
         // B: [3, 2]
         // 7 8
         // 9 10
         // 11 12
-        const B: Tensor<f32, 2, ConstDevice<6>> =
+        let b: Tensor<f32, 2, ConstDevice<6>> =
             Tensor::new_const([7.0, 8.0, 9.0, 10.0, 11.0, 12.0], [3, 2]);
 
         // C = A @ B: [2, 2]
         // 1*7 + 2*9 + 3*11 = 7 + 18 + 33 = 58
         // 1*8 + 2*10 + 3*12 = 8 + 20 + 36 = 64
-        // 4*7 + 5*9 + 6*11 = 28 + 45 + 66 = 139
-        // 4*8 + 5*10 + 6*12 = 32 + 50 + 72 = 154
-        const C: Tensor<f32, 2, ConstDevice<4>> = A.matmul(&B);
+        let c: Tensor<f32, 2, ConstDevice<4>> = a.matmul(&b);
 
-        assert_eq!(C.shape(), &[2, 2]);
-        assert_eq!(C.data(), &[58.0, 64.0, 139.0, 154.0]);
+        assert_eq!(c.shape(), &[2, 2]);
+        assert_eq!(c.data(), &[58.0, 64.0, 139.0, 154.0]);
+    }
+    #[test]
+    #[should_panic(expected = "Shape mismatch: data length does not match shape product")]
+    fn test_const_new_panic() {
+        let data: [f32; 3] = [1.0, 2.0, 3.0];
+        let _t: Tensor<f32, 2, ConstDevice<3>> = Tensor::new_const(data, [2, 2]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Shape mismatch: new shape size does not match tensor size")]
+    fn test_const_reshape_panic() {
+        let data: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
+        let t: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const(data, [2, 2]);
+        let _t2: Tensor<f32, 1, ConstDevice<4>> = t.reshape([3]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Transpose requires rank >= 2")]
+    fn test_const_transpose_panic() {
+        let data: [f32; 2] = [1.0, 2.0];
+        let t: Tensor<f32, 1, ConstDevice<2>> = Tensor::new_const(data, [2]);
+        let _t2: Tensor<f32, 1, ConstDevice<2>> = t.transpose();
+    }
+
+    #[test]
+    #[should_panic(expected = "Shape mismatch for matmul")]
+    fn test_const_matmul_panic_shape() {
+        let a: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const([1.0, 2.0, 3.0, 4.0], [2, 2]);
+        let b: Tensor<f32, 2, ConstDevice<6>> =
+            Tensor::new_const([1.0, 2.0, 3.0, 4.0, 5.0, 6.0], [3, 2]); // 2x2 @ 3x2 -> mismatch
+        let _c: Tensor<f32, 2, ConstDevice<4>> = a.matmul(&b);
+    }
+
+    #[test]
+    #[should_panic(expected = "Output size mismatch")]
+    fn test_const_matmul_panic_output() {
+        let a: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const([1.0, 2.0, 3.0, 4.0], [2, 2]);
+        let b: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const([1.0, 2.0, 3.0, 4.0], [2, 2]);
+        let _c: Tensor<f32, 2, ConstDevice<5>> = a.matmul(&b); // Output should be 4
     }
     #[test]
     fn test_const_tensor() {
-        const DATA: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
-        const SHAPE: [usize; 2] = [2, 2];
-        const T: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const(DATA, SHAPE);
+        let data: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
+        let shape: [usize; 2] = [2, 2];
+        let t: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const(data, shape);
 
-        assert_eq!(T.shape(), &[2, 2]);
-        assert_eq!(T.size(), 4);
-        assert_eq!(T.data(), &DATA);
-        assert_eq!(T.strides(), &[2, 1]);
+        assert_eq!(t.shape(), &[2, 2]);
+        assert_eq!(t.size(), 4);
+        assert_eq!(t.data(), &data);
+        assert_eq!(t.strides(), &[2, 1]);
     }
 
     #[test]
     fn test_const_ops() {
-        const DATA: [f32; 6] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        const T: Tensor<f32, 2, ConstDevice<6>> = Tensor::new_const(DATA, [2, 3]);
+        let data: [f32; 6] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let t: Tensor<f32, 2, ConstDevice<6>> = Tensor::new_const(data, [2, 3]);
 
         // Test Reshape
-        const T_RESHAPED: Tensor<f32, 3, ConstDevice<6>> = T.reshape([3, 2, 1]);
-        assert_eq!(T_RESHAPED.shape(), &[3, 2, 1]);
-        assert_eq!(T_RESHAPED.data(), &DATA);
+        let t_reshaped: Tensor<f32, 3, ConstDevice<6>> = t.reshape([3, 2, 1]);
+        assert_eq!(t_reshaped.shape(), &[3, 2, 1]);
+        assert_eq!(t_reshaped.data(), &data);
 
         // Test Transpose
         // [1 2 3]
@@ -789,9 +827,17 @@ mod tests {
         // [1 4]
         // [2 5]
         // [3 6]
-        const T_TRANSPOSED: Tensor<f32, 2, ConstDevice<6>> = T.transpose();
-        assert_eq!(T_TRANSPOSED.shape(), &[3, 2]);
-        assert_eq!(T_TRANSPOSED.data(), &[1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
+        let t_transposed: Tensor<f32, 2, ConstDevice<6>> = t.transpose();
+        assert_eq!(t_transposed.shape(), &[3, 2]);
+        assert_eq!(t_transposed.data(), &[1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
+    }
+
+    #[test]
+    fn test_const_compile_check() {
+        const DATA: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
+        const T: Tensor<f32, 2, ConstDevice<4>> = Tensor::new_const(DATA, [2, 2]);
+        const T_T: Tensor<f32, 2, ConstDevice<4>> = T.transpose();
+        assert_eq!(T_T.data(), &[1.0, 3.0, 2.0, 4.0]);
     }
 
     #[test]

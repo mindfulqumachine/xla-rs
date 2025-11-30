@@ -2,7 +2,21 @@
 
 > "Attention is all you need." — Vaswani et al., 2017
 
-The Transformer architecture has revolutionized Artificial Intelligence, displacing Recurrent Neural Networks (RNNs) as the dominant architecture for sequence modeling. Unlike RNNs, which process data sequentially (and thus struggle with long-range dependencies and parallelization), Transformers process entire sequences in parallel.
+The Transformer architecture has revolutionized Artificial Intelligence, displacing Recurrent Neural Networks (RNNs) as the dominant architecture for sequence modeling.
+To appreciate the innovation of the Transformer, we must first understand the challenge it addresses: **Sequence Transduction**. This is the task of converting an input sequence into an output sequence, such as translating a sentence from English to French.
+
+### The Landscape Before Transformers
+
+For years, the dominant architectures for this task were **Recurrent Neural Networks (RNNs)**, including sophisticated variants like LSTMs and GRUs. RNNs process sequences sequentially—one word at a time—maintaining an internal "memory" (a hidden state) of what they have seen so far.
+
+#### The Bottlenecks of Recurrence
+
+This sequential nature causes two major problems:
+
+1.  **Sequential Computation:** RNNs are inherently sequential. You cannot process the *n*-th word until you have processed the *(n-1)*-th word. This prevents parallelization, making training slow and inefficient on modern GPU/TPU hardware, which thrives on parallel processing.
+2.  **Long-Range Dependencies:** RNNs struggle to maintain context over long sequences. Information from the distant past tends to be "forgotten" (often due to vanishing gradients).
+
+The revolutionary idea of "Attention Is All You Need" was to eliminate the recurrence entirely and rely solely on **attention** to draw global dependencies between input and output. Unlike RNNs, Transformers process entire sequences in parallel.
 
 At the heart of this revolution is the **Attention Mechanism**.
 
@@ -182,6 +196,23 @@ To see a concrete example of attention resolving ambiguity, check out the test c
 *   "The trophy would not fit in the suitcase because **it** was too small." (it \\(\rightarrow\\) suitcase)
 
 Running this test prints a heatmap of the attention weights, visualizing exactly where the model "looks" to understand the word "it".
+
+## Strengths and Limitations
+
+The Transformer architecture represents a significant paradigm shift from previous sequence models.
+
+### Strengths
+
+*   **Parallelization**: By eliminating the sequential dependency of RNNs, Transformers allow for massive parallelization during training. This is the key factor that has enabled the training of Large Language Models (LLMs) on vast datasets.
+*   **Long-Range Dependencies**: The self-attention mechanism connects every token to every other token in a single operation ($O(1)$ path length). This allows the model to capture relationships between distant words much more effectively than RNNs, which have a path length of $O(N)$.
+*   **Modularity**: The architecture is composed of stacked, identical layers, making it scalable and relatively easy to implement and modify.
+
+### Limitations
+
+*   **Quadratic Complexity**: The primary drawback is the computational cost. Self-attention requires computing the similarity between *every* pair of tokens. For a sequence of length $N$, this results in $O(N^2)$ complexity for both time and memory. This makes processing very long sequences (e.g., entire books) computationally expensive.
+*   **Training Sensitivity**: Transformers can be sensitive to hyperparameter choices (learning rate, warmup schedules) and require careful tuning to ensure stable training.
+
+The quadratic complexity limitation has spurred extensive research into efficient variants and optimizations, such as **Grouped Query Attention (GQA)** and **KV Caching**, which we will discuss next.
 
 ## Modern Optimizations: Grouped Query Attention (GQA)
 

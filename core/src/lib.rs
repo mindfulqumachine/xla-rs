@@ -72,6 +72,7 @@ pub mod autograd;
 pub use autograd::Variable;
 pub use tensor::{ConstDevice, Cpu, Device, Storage, Tensor, TensorElem, TensorError, TensorOps};
 
+pub mod kernels;
 #[cfg(feature = "models")]
 pub mod models;
 pub mod nn;

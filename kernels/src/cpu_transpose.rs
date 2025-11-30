@@ -19,6 +19,14 @@ where
     let mut new_shape = *shape;
     new_shape.swap(RANK - 1, RANK - 2);
     let size: usize = new_shape.iter().product();
+
+    if data.len() != size {
+        return Err(crate::KernelError::ShapeMismatch {
+            expected: vec![size],
+            got: vec![data.len()],
+        });
+    }
+
     let mut out_data = vec![T::zero(); size];
 
     // We parallelize over the rows of the OUTPUT tensor.

@@ -1,6 +1,5 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use xla_rs::tensor::ops::TensorOps;
-use xla_rs::tensor::{ConstDevice, Cpu, Tensor};
+use xla_rs::tensor::{ConstDevice, Tensor};
 
 fn benchmark_matmul(c: &mut Criterion) {
     let mut group = c.benchmark_group("matmul");
