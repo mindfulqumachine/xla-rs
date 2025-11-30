@@ -405,4 +405,32 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_debug_impl() {
+        let num_heads = 1;
+        let num_kv_heads = 1;
+        let head_dim = 4;
+        let model_dim = num_heads * head_dim;
+
+        let eye = tensor_eye(model_dim);
+        let zeros = Tensor::zeros([model_dim]);
+        let q_proj = Linear::new(eye.clone(), Some(zeros.clone()));
+        let k_proj = Linear::new(eye.clone(), Some(zeros.clone()));
+        let v_proj = Linear::new(eye.clone(), Some(zeros.clone()));
+        let o_proj = Linear::new(eye.clone(), Some(zeros.clone()));
+
+        let attn = OptimizedMultiHeadAttention::new(
+            num_heads,
+            num_kv_heads,
+            head_dim,
+            q_proj,
+            k_proj,
+            v_proj,
+            o_proj,
+        )
+        .unwrap();
+
+        assert!(format!("{:?}", attn).contains("OptimizedMultiHeadAttention"));
+    }
 }

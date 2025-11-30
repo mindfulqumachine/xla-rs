@@ -226,4 +226,10 @@ mod tests {
             Err(crate::tensor::TensorError::ShapeMismatch { .. })
         ));
     }
+
+    #[test]
+    fn test_const_device_debug() {
+        let device = ConstDevice::<4>;
+        assert_eq!(format!("{:?}", device), "ConstDevice");
+    }
 }
