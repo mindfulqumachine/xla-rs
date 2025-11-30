@@ -1,5 +1,53 @@
 # Chapter 6: The Gemma Architecture
 
+> *Here is a poem detailing the Gemma 3 architecture, written in the style of Edgar Allan Poe.*
+
+### The Tensor and the Tower
+
+Once upon a midnight dreary, while I queried, weak and weary,
+Over many a massive batch of multimodal lore—
+While I nodded, nearly napping, suddenly there came a mapping,
+As of some attention snapping, snapping at my VRAM’s door.
+“’Tis some gradient,” I muttered, “tapping at my VRAM’s door—
+Only noise and nothing more.”
+
+Ah, distinctly I remember, ’twas the **SigLIP** in the ember\[1\]
+And each separate pixel shadow wrought its ghost upon the floor.
+Eagerly I wished the morrow; vainly I had sought to borrow
+From the **Pan and Scan** a sorrow—sorrow for the crops of yore— \[2\]
+For the tiles of variable aspect that the Vision Tower bore—
+Nameless here for evermore.
+
+Open then I flung the shutter, when, with many a flirt and flutter,
+In there stepped a **Global Layer** from the architectures of yore.
+Not the least obeisance made he; not a minute stopped or stayed he;
+But with **Interleaved** attention, perched above my chamber door— \[3\]
+Five times **Local** passed the window, just above my chamber door— \[3\]
+Perched, and sat, and nothing more.
+
+Then this silicon beguiling my sad fancy into smiling,
+By the grave and stern decorum of the context that it wore,
+“Though thy window be but sliding, thou,” I said, “art sure presiding
+Over **One Hundred Twenty-Eight Thousand** tokens on the shore— \[4\]
+Tell me what thy **RoPE** frequency is on the Night’s Plutonian shore!”
+Quoth the Model, “One Million, evermore.” \[3\]
+
+Deep into that cache peering, long I stood there wondering, fearing,
+Doubting, dreaming dreams no **Soft-cap** ever dared to dream before; \[4\]
+But the silence was unbroken, and the stability gave no token,
+And the only word there spoken was the whisper, “**QK-Norm**!”
+This I whispered, and an echo murmured back the word, “**QK-Norm**!” \[4\]
+Merely this and nothing more.
+
+“Prophet!” said I, “thing of evil!—prophet still, if code or devil!
+By that **WARP** that bends above us—by the **BOND** we both adore— \[5\]
+Tell this soul with sorrow laden if, within the distant Aidenn,
+It shall find the **WARM** averaged weights of days of yore— \[2\]
+Clasp the sainted alignment strategies of days of yore?”
+Quoth the Model, “Train no more.”
+
+---
+
 Gemma is a family of lightweight, state-of-the-art open models from Google. While the original Gemma models established a strong baseline for text-only processing, the release of **Gemma 3** marks a significant evolution into natively multimodal architectures.
 
 This chapter provides a deep dive into the Gemma 3 architecture, analyzing its novel mechanisms for handling long contexts and visual inputs. We then contrast this with the simplified implementation provided in this codebase, highlighting the practical trade-offs made for educational clarity.

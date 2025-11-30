@@ -13,18 +13,22 @@
 # Part III: Architectures
 - [The Gemma Architecture](chapter_06_gemma.md)
 
-# Part IV: Inference at Scale
+# Part IV: Inference Optimizations
 - [Inference Optimizations](chapter_07_inference_optimizations.md)
-- [Distributed Inference](chapter_08_distributed_inference.md)
 
-# Part V: Training & Serving
-- [The Training Loop](chapter_09_training.md)
-- [Serving](chapter_10_serving.md)
+# Part V: Distributed Computing
+- [Communication Collectives](chapter_08_collectives.md)
+- [Tensor Parallelism](chapter_09_tensor_parallelism.md)
+- [Pipeline Parallelism](chapter_10_pipeline_parallelism.md)
+- [Data Parallelism & Sharding](chapter_11_data_parallelism.md)
 
-# Part VI: The Frontier
-- [State Space Models](chapter_11_ssm.md)
-- [Generative Art: Diffusion](chapter_12_diffusion.md)
-- [Communication Collectives](chapter_13_collectives.md)
-- [Reinforcement Learning](chapter_14_rl.md)
-- [Quantization](chapter_15_quantization.md)
+# Part VI: Training & Serving
+- [The Training Loop](chapter_12_training.md)
+- [Serving](chapter_13_serving.md)
+
+# Part VII: The Frontier
+- [State Space Models](chapter_14_ssm.md)
+- [Generative Art: Diffusion](chapter_15_diffusion.md)
+- [Reinforcement Learning](chapter_16_rl.md)
+- [Quantization](chapter_17_quantization.md)
     

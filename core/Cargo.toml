@@ -12,6 +12,8 @@ default = []
 # Feature to include pre-built model architectures (e.g. Gemma).
 # Gated to reduce compilation time for users who only need core tensor operations.
 models = []
+# Feature to enable XLA backend for distributed training.
+xla-backend = ["dep:xla"]
 
 [dependencies]
 anyhow = "1.0.100"
@@ -24,6 +26,8 @@ const_soft_float = "0.1.4"
 safetensors = "0.4.1"
 memmap2 = "0.9.4"
 tokenizers = "0.21.0"
+xla = { version = "0.1.6", optional = true }
+crossbeam = "0.8.4"
 
 [dev-dependencies]
 criterion = "0.5.1"

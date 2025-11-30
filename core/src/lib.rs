@@ -69,6 +69,7 @@ macro_rules! tensor {
 }
 
 pub mod autograd;
+pub mod distributed;
 pub use autograd::Variable;
 pub use tensor::{ConstDevice, Cpu, Device, Storage, Tensor, TensorElem, TensorError, TensorOps};
 
