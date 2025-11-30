@@ -17,15 +17,6 @@ impl<T: TensorElem> Sgd<T> {
 }
 
 impl<T: TensorElem> Optimizer<T> for Sgd<T> {
-    fn step(
-        &mut self,
-        _params: &mut [&mut Tensor<T, 2, Cpu>],
-        _grads: &[&Tensor<T, 2, Cpu>],
-    ) -> Result<()> {
-        // Deprecated/Unused in favor of `update`
-        Ok(())
-    }
-
     fn update<const RANK: usize>(
         &self,
         param: &mut Tensor<T, RANK, Cpu>,

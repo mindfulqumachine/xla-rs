@@ -7,23 +7,6 @@ use crate::tensor::{Result, Tensor, TensorElem};
 ///
 /// Optimizers are responsible for updating model parameters based on computed gradients.
 pub trait Optimizer<T: TensorElem> {
-    /// Performs a single optimization step.
-    ///
-    /// # Arguments
-    ///
-    /// * `params` - A list of mutable references to the model parameters (weights/biases).
-    /// * `grads` - A list of references to the gradients corresponding to the parameters.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the number of parameters and gradients do not match,
-    /// or if shapes mismatch.
-    fn step(
-        &mut self,
-        params: &mut [&mut Tensor<T, 2, crate::tensor::Cpu>],
-        grads: &[&Tensor<T, 2, crate::tensor::Cpu>],
-    ) -> Result<()>;
-
     // Note: The above signature is a bit restrictive (Rank 2).
     // Realistically, params can have any rank.
     // We might need a generic way to handle `Tensor<T, RANK, Cpu>`.

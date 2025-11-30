@@ -334,6 +334,15 @@ mod tests {
         let f = Tensor::<f32, 1>::new(vec![1.0, 2.0, 3.0], [3]).unwrap();
         let err = &a + &f;
         assert!(matches!(err, Err(TensorError::ShapeMismatch { .. })));
+
+        let err = &a - &f;
+        assert!(matches!(err, Err(TensorError::ShapeMismatch { .. })));
+
+        let err = &a * &f;
+        assert!(matches!(err, Err(TensorError::ShapeMismatch { .. })));
+
+        let err = &a / &f;
+        assert!(matches!(err, Err(TensorError::ShapeMismatch { .. })));
     }
 
     #[test]
