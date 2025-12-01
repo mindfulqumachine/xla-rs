@@ -12,6 +12,7 @@
 
 # Part III: Architectures
 - [The Gemma Architecture](chapter_06_gemma.md)
+- [Computer Vision: ResNet & ViT](chapter_07_computer_vision.md)
 - [Building GPT-2 from Scratch](chapter_07_gpt2.md)
 - [Optimization & Training Dynamics](chapter_08_optimization.md)
 
@@ -23,6 +24,7 @@
 - [Tensor Parallelism](chapter_09_tensor_parallelism.md)
 - [Pipeline Parallelism](chapter_10_pipeline_parallelism.md)
 - [Data Parallelism & Sharding](chapter_11_data_parallelism.md)
+- [Advanced Parallelism: FSDP](chapter_11b_advanced_parallelism.md)
 
 # Part VI: Training & Serving
 - [The Training Loop](chapter_12_training.md)

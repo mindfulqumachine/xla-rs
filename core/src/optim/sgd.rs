@@ -1,5 +1,5 @@
 use super::Optimizer;
-use crate::tensor::{Cpu, Result, Tensor, TensorElem};
+use crate::tensor::{Result, Tensor, TensorElem};
 use rayon::prelude::*;
 
 /// Stochastic Gradient Descent (SGD) optimizer.

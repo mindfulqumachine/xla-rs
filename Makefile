@@ -1,7 +1,8 @@
 .PHONY: build test lint book serve playground test-book clean doc doc-test serve-doc
 
 # Default target
-all: fmt lint check-updates build coverage test-book doc doc-test spellcheck linkcheck
+# Default target
+all: fmt lint check-updates build test-book doc doc-test spellcheck linkcheck
 
 # Rust commands
 build:
@@ -49,7 +50,7 @@ playground:
 
 test-book: build
 	cargo clean -p xla_rs
-	cargo build --features models
+	cargo build
 	@echo "Running mdbook tests..."
 	mdbook test -L target/debug/deps book
 

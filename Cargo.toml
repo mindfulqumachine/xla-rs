@@ -2,5 +2,8 @@
 members = ["core", "kernels", "examples"]
 resolver = "2"
 
+[profile.dev]
+incremental = true
+
 [profile.bench]
 debug = true

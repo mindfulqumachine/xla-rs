@@ -8,7 +8,7 @@ repository = "https://github.com/mindfulqumachine/xla-rs"
 documentation = "https://mindfulqumachine.github.io/xla-rs/book/"
 
 [features]
-default = []
+default = ["models"]
 # Feature to include pre-built model architectures (e.g. Gemma).
 # Gated to reduce compilation time for users who only need core tensor operations.
 models = []

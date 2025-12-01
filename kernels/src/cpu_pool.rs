@@ -112,10 +112,8 @@ pub fn cpu_max_pool2d<T: KernelElem>(
                                         if !initialized {
                                             max_val = val;
                                             initialized = true;
-                                        } else {
-                                            if val > max_val {
-                                                max_val = val;
-                                            }
+                                        } else if val > max_val {
+                                            max_val = val;
                                         }
                                     }
                                 }

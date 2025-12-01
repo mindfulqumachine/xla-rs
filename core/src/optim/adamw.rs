@@ -1,5 +1,5 @@
 use super::Optimizer;
-use crate::tensor::{Cpu, Result, Tensor, TensorElem};
+use crate::tensor::{Result, Tensor, TensorElem};
 use rayon::prelude::*;
 use std::collections::HashMap;
 
@@ -183,13 +183,14 @@ impl<T: TensorElem> Optimizer<T> for AdamW<T> {
         // We can iterate over keys and parse.
 
         // Group by key first
-        let mut grouped_state: HashMap<usize, (Option<Vec<T>>, Option<Vec<T>>, Option<u64>)> =
-            HashMap::new();
+        type AdamWGroupedState<T> = (Option<Vec<T>>, Option<Vec<T>>, Option<u64>);
+        let mut grouped_state: HashMap<usize, AdamWGroupedState<T>> = HashMap::new();
 
         for (name, tensor) in state {
             if name.starts_with("state.") {
                 let parts: Vec<&str> = name.split('.').collect();
                 if parts.len() == 3 {
+                    #[allow(clippy::collapsible_if)]
                     if let Ok(key) = parts[1].parse::<usize>() {
                         let field = parts[2];
                         let entry = grouped_state.entry(key).or_insert((None, None, None));

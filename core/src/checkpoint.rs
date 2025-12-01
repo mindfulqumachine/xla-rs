@@ -39,7 +39,7 @@ pub fn save_checkpoint<P: AsRef<Path>, T: TensorElem>(
         let data_bytes = unsafe {
             std::slice::from_raw_parts(
                 tensor.data().as_ptr() as *const u8,
-                tensor.data().len() * std::mem::size_of::<T>(),
+                std::mem::size_of_val(tensor.data()),
             )
         };
 

@@ -30,7 +30,7 @@
 //! *   [`CollectiveBackend`](backend::CollectiveBackend): The interface for communication. We support:
 //!     *   **XLA/NCCL**: High-performance GPU communication (Production).
 //!     *   **CPU/Ring**: A pure Rust implementation of Ring All-Reduce (Education).
-//! *   [`TensorParallelLinear`](crate::distributed::linear::TensorParallelLinear): A Linear layer that automatically splits weights across devices.
+//! *   `TensorParallelLinear` (requires `xla-backend` feature): A Linear layer that automatically splits weights across devices.
 //!
 //! ## 🚀 Quick Start (Educational)
 //!
@@ -42,5 +42,7 @@ pub mod backend;
 #[cfg(feature = "xla-backend")]
 pub mod comm;
 pub mod cpu_backend;
+pub mod fsdp;
 #[cfg(feature = "xla-backend")]
 pub mod linear;
+pub mod pipeline;

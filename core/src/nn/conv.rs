@@ -1,4 +1,3 @@
-use crate::nn::Module;
 use crate::tensor::{Device, Result, Tensor, TensorElem};
 
 /// 2D Convolution Layer.

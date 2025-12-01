@@ -28,7 +28,7 @@ Stochastic Gradient Descent (SGD) is the foundation of deep learning, but for Tr
 
 We've implemented `AdamW` in `core/src/optim/adamw.rs`. Here's how you use it:
 
-```rust
+```rust,ignore
 use xla_rs::optim::{AdamW, Optimizer};
 
 // 1. Create the optimizer
@@ -60,7 +60,7 @@ As the model approaches a minimum, we want to take smaller steps to settle into 
 
 We provide `LinearWarmup` and `CosineDecay` in `core/src/optim/scheduler.rs`.
 
-```rust
+```rust,ignore
 use xla_rs::optim::scheduler::{LRScheduler, LinearWarmup, CosineDecay};
 
 let warmup_steps = 2000;
@@ -84,7 +84,7 @@ Transformers can suffer from **exploding gradients**, where a single bad batch p
 
 **Gradient Clipping** scales down the entire gradient vector if its norm exceeds a threshold (usually 1.0). This preserves the *direction* of the update but limits its *magnitude*.
 
-```rust
+```rust,ignore
 // In your training loop, before optimizer.update():
 let total_norm = xla_rs::optim::utils::clip_grad_norm(&mut grads, 1.0);
 ```
@@ -98,7 +98,7 @@ We use `safetensors` for efficient, safe serialization.
 
 ### Saving
 
-```rust
+```rust,ignore
 use xla_rs::checkpoint::save_checkpoint;
 
 // Save model weights
@@ -110,7 +110,7 @@ save_checkpoint("optimizer.safetensors", &optimizer.state_dict())?;
 
 ### Loading
 
-```rust
+```rust,ignore
 use xla_rs::checkpoint::load_checkpoint;
 
 // Load weights

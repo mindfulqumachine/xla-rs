@@ -429,7 +429,7 @@ where
             // New shape is `new_shape`.
             // We can iterate over the 4 dimensions of the OUTPUT.
             // Let's call them d0, d1, d2, d3.
-            let d0 = new_shape[0];
+            let _d0 = new_shape[0];
             let d1 = new_shape[1];
             let d2 = new_shape[2];
             let d3 = new_shape[3];

@@ -1,5 +1,5 @@
 use crate::nn::transformer::attention::MultiHeadAttention;
-use crate::nn::{Activation, Conv2d, LayerNorm, Linear, Module};
+use crate::nn::{Activation, Conv2d, LayerNorm, Linear};
 use crate::tensor::{Cpu, Result, Tensor, TensorElem};
 
 /// Patch Embedding Layer.
@@ -133,6 +133,7 @@ pub struct ViT<T: TensorElem> {
 }
 
 impl<T: TensorElem + num_traits::Float> ViT<T> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         img_size: usize,
         patch_size: usize,
@@ -257,5 +258,77 @@ impl<T: TensorElem + num_traits::Float> ViT<T> {
 
         // Head
         self.head.forward(&cls_out)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tensor::Tensor;
+
+    #[test]
+    fn test_patch_embedding() {
+        let img_size = 32;
+        let patch_size = 4;
+        let in_channels = 3;
+        let embed_dim = 16;
+        let pe = PatchEmbedding::<f32>::new(img_size, patch_size, in_channels, embed_dim);
+
+        let batch_size = 2;
+        let x = Tensor::zeros([batch_size, in_channels, img_size, img_size]);
+        let out = pe.forward(&x).unwrap();
+
+        let num_patches = (img_size / patch_size) * (img_size / patch_size);
+        assert_eq!(out.shape(), &[batch_size, num_patches, embed_dim]);
+    }
+
+    #[test]
+    fn test_vit_block() {
+        let embed_dim = 32;
+        let num_heads = 4;
+        let mlp_ratio = 2;
+        let block = ViTBlock::<f32>::new(embed_dim, num_heads, mlp_ratio);
+
+        let batch_size = 2;
+        let seq_len = 10;
+        let x = Tensor::zeros([batch_size, seq_len, embed_dim]);
+        let out = block.forward(&x).unwrap();
+
+        assert_eq!(out.shape(), &[batch_size, seq_len, embed_dim]);
+    }
+
+    #[test]
+    fn test_vit_forward() {
+        let img_size = 32;
+        let patch_size = 4;
+        let in_channels = 3;
+        let num_classes = 10;
+        let embed_dim = 32;
+        let depth = 2;
+        let num_heads = 4;
+        let mlp_ratio = 2;
+
+        let vit = ViT::<f32>::new(
+            img_size,
+            patch_size,
+            in_channels,
+            num_classes,
+            embed_dim,
+            depth,
+            num_heads,
+            mlp_ratio,
+        );
+
+        let batch_size = 2;
+        let x = Tensor::zeros([batch_size, in_channels, img_size, img_size]);
+        let out = vit.forward(&x).unwrap();
+
+        assert_eq!(out.shape(), &[batch_size, num_classes]);
+    }
+
+    #[test]
+    fn test_vit_base_init() {
+        let vit = ViT::<f32>::vit_base();
+        assert_eq!(vit.blocks.len(), 12);
     }
 }

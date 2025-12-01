@@ -1,4 +1,4 @@
-use crate::nn::{Activation, Conv2d, LayerNorm, Linear, MaxPool2d, Module};
+use crate::nn::{Conv2d, LayerNorm, Linear, MaxPool2d};
 use crate::tensor::{Cpu, Result, Tensor, TensorElem};
 
 /// A ResNet Basic Block.
@@ -227,13 +227,13 @@ impl<T: TensorElem + num_traits::Float> ResNet<T> {
             .enumerate()
             .for_each(|(batch_idx, batch_out)| {
                 let in_offset_base = batch_idx * stride_b;
-                for ch in 0..c {
+                for (ch, out_val) in batch_out.iter_mut().enumerate().take(c) {
                     let mut sum = T::zero();
                     let ch_offset = in_offset_base + ch * stride_c;
                     for i in 0..stride_c {
                         sum += out_data[ch_offset + i];
                     }
-                    batch_out[ch] = sum / area;
+                    *out_val = sum / area;
                 }
             });
 
@@ -246,5 +246,59 @@ impl<T: TensorElem + num_traits::Float> ResNet<T> {
         let x_norm = norm.forward(&x_perm)?;
         let x_out = x_norm.transpose_axes(2, 3)?.transpose_axes(1, 2)?;
         Ok(x_out)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tensor::Tensor;
+
+    #[test]
+    fn test_basic_block() {
+        let in_channels = 16;
+        let out_channels = 16;
+        let stride = 1;
+        let block = BasicBlock::<f32>::new(in_channels, out_channels, stride);
+
+        let batch_size = 2;
+        let size = 8;
+        let x = Tensor::zeros([batch_size, in_channels, size, size]);
+        let out = block.forward(&x).unwrap();
+
+        assert_eq!(out.shape(), &[batch_size, out_channels, size, size]);
+    }
+
+    #[test]
+    fn test_basic_block_downsample() {
+        let in_channels = 16;
+        let out_channels = 32;
+        let stride = 2;
+        let block = BasicBlock::<f32>::new(in_channels, out_channels, stride);
+
+        let batch_size = 2;
+        let size = 8;
+        let x = Tensor::zeros([batch_size, in_channels, size, size]);
+        let out = block.forward(&x).unwrap();
+
+        assert_eq!(out.shape(), &[batch_size, out_channels, size / 2, size / 2]);
+    }
+
+    #[test]
+    fn test_resnet_forward() {
+        let num_classes = 10;
+        let resnet = ResNet::<f32>::new(num_classes);
+
+        let batch_size = 2;
+        // ResNet expects 3 channels, 224x224 usually, but we can test with smaller if logic allows.
+        // The initial conv is 7x7 stride 2 pad 3.
+        // Let's use 224 to be safe.
+        let x = Tensor::zeros([batch_size, 3, 224, 224]);
+
+        // This might be slow for a unit test if not optimized.
+        // Let's try it.
+        let out = resnet.forward(&x).unwrap();
+
+        assert_eq!(out.shape(), &[batch_size, num_classes]);
     }
 }
