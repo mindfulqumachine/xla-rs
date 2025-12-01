@@ -13,6 +13,7 @@
 # Part III: Architectures
 - [The Gemma Architecture](chapter_06_gemma.md)
 - [Building GPT-2 from Scratch](chapter_07_gpt2.md)
+- [Optimization & Training Dynamics](chapter_08_optimization.md)
 
 # Part IV: Inference Optimizations
 - [Inference Optimizations](chapter_07_inference_optimizations.md)

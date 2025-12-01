@@ -142,7 +142,9 @@ fn main() {
         {
             let grad_ref = fc1.lora_a.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(0, &mut fc1.lora_a.data, grad).unwrap();
+                optimizer
+                    .update(vec![&mut fc1.lora_a.data], vec![grad], 0)
+                    .unwrap();
             }
         }
         *fc1.lora_a.grad.borrow_mut() = None;
@@ -150,7 +152,9 @@ fn main() {
         {
             let grad_ref = fc1.lora_b.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(1, &mut fc1.lora_b.data, grad).unwrap();
+                optimizer
+                    .update(vec![&mut fc1.lora_b.data], vec![grad], 1)
+                    .unwrap();
             }
         }
         *fc1.lora_b.grad.borrow_mut() = None;
@@ -158,7 +162,9 @@ fn main() {
         {
             let grad_ref = fc2.lora_a.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(2, &mut fc2.lora_a.data, grad).unwrap();
+                optimizer
+                    .update(vec![&mut fc2.lora_a.data], vec![grad], 2)
+                    .unwrap();
             }
         }
         *fc2.lora_a.grad.borrow_mut() = None;
@@ -166,7 +172,9 @@ fn main() {
         {
             let grad_ref = fc2.lora_b.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(3, &mut fc2.lora_b.data, grad).unwrap();
+                optimizer
+                    .update(vec![&mut fc2.lora_b.data], vec![grad], 3)
+                    .unwrap();
             }
         }
         *fc2.lora_b.grad.borrow_mut() = None;

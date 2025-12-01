@@ -31,9 +31,11 @@
 //! // Returns logits: [Batch, Seq, Vocab]
 //! let logits = model.forward(&input_ids).unwrap();
 //!
-//! assert_eq!(logits.shape(), &[1, 10, 256000]); // Gemma vocab size
+//! assert_eq!(logits.shape() as usize, &[1, 10, 256000]); // Gemma vocab size
 //! ```
 
 pub mod gemma;
 pub mod gpt2;
+pub mod resnet;
 pub mod traits;
+pub mod vit;

@@ -86,6 +86,7 @@ macro_rules! tensor {
 }
 
 pub mod autograd;
+pub mod checkpoint;
 pub mod data;
 pub mod distributed;
 pub use autograd::Variable;

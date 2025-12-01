@@ -244,6 +244,142 @@ where
         })
     }
 
+    /// Performs 2D Convolution.
+    ///
+    /// # Arguments
+    ///
+    /// * `weight` - Weight tensor of shape `[out_channels, in_channels, kernel_h, kernel_w]`.
+    /// * `stride` - Stride of the convolution `[stride_h, stride_w]`.
+    /// * `padding` - Padding added to both sides of the input `[pad_h, pad_w]`.
+    /// * `dilation` - Dilation of the kernel `[dil_h, dil_w]`.
+    ///
+    /// # Returns
+    ///
+    /// A new tensor resulting from the convolution.
+    /// Output shape: `[batch_size, out_channels, out_h, out_w]`
+    pub fn conv2d(
+        &self,
+        weight: &Tensor<T, 4, Cpu>,
+        stride: [usize; 2],
+        padding: [usize; 2],
+        dilation: [usize; 2],
+    ) -> Result<Tensor<T, 4, Cpu>> {
+        // Compile-time check
+        const { assert!(RANK == 4, "Conv2d requires rank 4 input") };
+
+        let out_data = xla_rs_kernels::cpu_conv2d(
+            self.data.as_slice(),
+            weight.data.as_slice(),
+            &self.shape,
+            &weight.shape,
+            stride,
+            padding,
+            dilation,
+        )
+        .map_err(|e| match e {
+            xla_rs_kernels::KernelError::ShapeMismatch { expected, got } => {
+                TensorError::ShapeMismatch { expected, got }
+            }
+        })?;
+
+        // Calculate output shape to construct Tensor
+        // We can duplicate the logic or trust the kernel returns correct size and we just need to compute shape to store it.
+        // Or we can ask kernel to return shape? No, kernel returns Vec<T>.
+        // Let's recompute shape here.
+
+        let batch_size = self.shape[0];
+        // let in_channels = self.shape[1];
+        let in_h = self.shape[2];
+        let in_w = self.shape[3];
+
+        let out_channels = weight.shape[0];
+        let k_h = weight.shape[2];
+        let k_w = weight.shape[3];
+
+        let stride_h = stride[0];
+        let stride_w = stride[1];
+        let pad_h = padding[0];
+        let pad_w = padding[1];
+        let dil_h = dilation[0];
+        let dil_w = dilation[1];
+
+        let effective_k_h = k_h + (k_h - 1) * (dil_h - 1);
+        let effective_k_w = k_w + (k_w - 1) * (dil_w - 1);
+
+        let out_h = (in_h + 2 * pad_h - effective_k_h) / stride_h + 1;
+        let out_w = (in_w + 2 * pad_w - effective_k_w) / stride_w + 1;
+
+        let out_shape = [batch_size, out_channels, out_h, out_w];
+        let strides = crate::tensor::compute_strides(&out_shape);
+
+        Ok(Tensor {
+            shape: out_shape,
+            strides,
+            data: out_data,
+            device: Cpu,
+        })
+    }
+
+    /// Performs 2D Max Pooling.
+    ///
+    /// # Arguments
+    ///
+    /// * `kernel_size` - Size of the pooling window `[k_h, k_w]`.
+    /// * `stride` - Stride of the pooling `[stride_h, stride_w]`.
+    /// * `padding` - Padding added to both sides of the input `[pad_h, pad_w]`.
+    ///
+    /// # Returns
+    ///
+    /// A new tensor resulting from the max pooling.
+    /// Output shape: `[batch_size, channels, out_h, out_w]`
+    pub fn max_pool2d(
+        &self,
+        kernel_size: [usize; 2],
+        stride: [usize; 2],
+        padding: [usize; 2],
+    ) -> Result<Tensor<T, 4, Cpu>> {
+        // Compile-time check
+        const { assert!(RANK == 4, "MaxPool2d requires rank 4 input") };
+
+        let out_data = xla_rs_kernels::cpu_max_pool2d(
+            self.data.as_slice(),
+            &self.shape,
+            kernel_size,
+            stride,
+            padding,
+        )
+        .map_err(|e| match e {
+            xla_rs_kernels::KernelError::ShapeMismatch { expected, got } => {
+                TensorError::ShapeMismatch { expected, got }
+            }
+        })?;
+
+        let batch_size = self.shape[0];
+        let channels = self.shape[1];
+        let in_h = self.shape[2];
+        let in_w = self.shape[3];
+
+        let k_h = kernel_size[0];
+        let k_w = kernel_size[1];
+        let stride_h = stride[0];
+        let stride_w = stride[1];
+        let pad_h = padding[0];
+        let pad_w = padding[1];
+
+        let out_h = (in_h + 2 * pad_h - k_h) / stride_h + 1;
+        let out_w = (in_w + 2 * pad_w - k_w) / stride_w + 1;
+
+        let out_shape = [batch_size, channels, out_h, out_w];
+        let strides = crate::tensor::compute_strides(&out_shape);
+
+        Ok(Tensor {
+            shape: out_shape,
+            strides,
+            data: out_data,
+            device: Cpu,
+        })
+    }
+
     /// Transposes two specific axes of the tensor.
     ///
     /// This operation creates a new tensor with the data physically permuted to match the new shape.
@@ -281,57 +417,114 @@ where
         // Generic permute is hard. Implementing for specific cases used in Attention.
         // Case: [B, S, H, D] -> [B, H, S, D] (swap 1 and 2) where RANK=4.
 
-        if RANK == 4 && ((ax1 == 1 && ax2 == 2) || (ax1 == 2 && ax2 == 1)) {
-            let [_, _, _, _] = self.shape[0..4].try_into().unwrap();
-            // Input: B, S, H, D. Output: B, H, S, D.
-            // We want to write to [b, h, s, d].
-            // Iterate output
-            let out_s = out.strides;
-            let in_s = self.strides;
-
-            // We can use a generic loop with recursion or specific nested loops.
-            // Nested loops for 4D.
-            // Parallelize on B.
-
-            // Check if ax1/ax2 match expectation.
-            // The shape in `self` is [B, S, H, D] (if coming from reshape).
-            // If we swap 1 and 2, we get [B, H, S, D].
-
-            // But let's use the strides to be generic for 4D.
+        if RANK == 4 {
+            // Generic Rank 4 transpose
+            // We want to iterate over the *output* tensor linearly or in chunks, and map to *input* tensor.
+            // Or iterate over input dimensions in the new order.
 
             let out_ptr = out.data.as_mut_slice();
             let in_ptr = self.data.as_slice();
+            let in_strides = self.strides;
 
-            // Parallelize outer dim
+            // New shape is `new_shape`.
+            // We can iterate over the 4 dimensions of the OUTPUT.
+            // Let's call them d0, d1, d2, d3.
+            let d0 = new_shape[0];
+            let d1 = new_shape[1];
+            let d2 = new_shape[2];
+            let d3 = new_shape[3];
+
+            // We need to map output indices (i0, i1, i2, i3) to input indices.
+            // If we swapped ax1 and ax2:
+            // input_indices[ax1] = output_indices[ax2]
+            // input_indices[ax2] = output_indices[ax1]
+            // others are same.
+
+            // Let's pre-calculate the stride mapping.
+            // input_offset = i0 * S0 + i1 * S1 + i2 * S2 + i3 * S3
+            // where S_k is the stride of the k-th dimension in the INPUT.
+            // But we are iterating i0..i3 which are OUTPUT dimensions.
+            // So we need to know which Input Stride corresponds to Output Dimension k.
+            // If we swapped ax1 and ax2, then:
+            // Output Dim ax1 corresponds to Input Dim ax2.
+            // Output Dim ax2 corresponds to Input Dim ax1.
+            // Other Output Dim k corresponds to Input Dim k.
+
+            let mut mapped_strides = [0; 4];
+            for i in 0..4 {
+                if i == ax1 {
+                    mapped_strides[i] = in_strides[ax2];
+                } else if i == ax2 {
+                    mapped_strides[i] = in_strides[ax1];
+                } else {
+                    mapped_strides[i] = in_strides[i];
+                }
+            }
+
+            let s0 = mapped_strides[0];
+            let s1 = mapped_strides[1];
+            let s2 = mapped_strides[2];
+            let s3 = mapped_strides[3];
+
+            // Parallelize over d0 (Batch) and d1
+            // Flatten d0 and d1 for better parallelism if d0 is small?
+            // Or just d0.
+
             out_ptr
-                .par_chunks_mut(out_s[0])
+                .par_chunks_mut(d1 * d2 * d3)
                 .enumerate()
-                .for_each(|(i, batch_chunk)| {
-                    // i is batch index
-                    // batch_chunk is [H, S, D] size flattened
-                    // We need to iterate over H, S, D
-                    let new_dim1 = new_shape[1]; // H
-                    let new_dim2 = new_shape[2]; // S
-                    let new_dim3 = new_shape[3]; // D
+                .for_each(|(i0, chunk)| {
+                    // i0 is the index for dimension 0
+                    for i1 in 0..d1 {
+                        for i2 in 0..d2 {
+                            for i3 in 0..d3 {
+                                // Output linear index within chunk
+                                let out_idx = i1 * (d2 * d3) + i2 * d3 + i3;
 
-                    for j in 0..new_dim1 {
-                        for k in 0..new_dim2 {
-                            for l in 0..new_dim3 {
-                                // Output index: i, j, k, l (linear: i*s0 + j*s1 + k*s2 + l*s3)
-                                // This chunk corresponds to `i`. so offset is j*out_s[1] + ...
-                                let out_idx = j * out_s[1] + k * out_s[2] + l * out_s[3];
+                                // Input linear index
+                                let in_idx = i0 * s0 + i1 * s1 + i2 * s2 + i3 * s3;
 
-                                // Input index: i, k, j, l (swapped j and k compared to output dims mapping)
-                                // Wait, we swapped axes.
-                                // Input indices:
-                                // idx[ax1] = out_idx[ax2]
-                                // idx[ax2] = out_idx[ax1]
-                                // indices: [i, k, j, l] if we swapped 1 and 2.
-                                // Input stride:
-                                let in_idx = i * in_s[0] + k * in_s[1] + j * in_s[2] + l * in_s[3];
-
-                                batch_chunk[out_idx] = in_ptr[in_idx];
+                                chunk[out_idx] = in_ptr[in_idx];
                             }
+                        }
+                    }
+                });
+
+            Ok(out)
+        } else if RANK == 3 {
+            // Generic Rank 3 transpose
+            let out_ptr = out.data.as_mut_slice();
+            let in_ptr = self.data.as_slice();
+            let in_strides = self.strides;
+
+            let _d0 = new_shape[0];
+            let d1 = new_shape[1];
+            let d2 = new_shape[2];
+
+            let mut mapped_strides = [0; 3];
+            for i in 0..3 {
+                if i == ax1 {
+                    mapped_strides[i] = in_strides[ax2];
+                } else if i == ax2 {
+                    mapped_strides[i] = in_strides[ax1];
+                } else {
+                    mapped_strides[i] = in_strides[i];
+                }
+            }
+
+            let s0 = mapped_strides[0];
+            let s1 = mapped_strides[1];
+            let s2 = mapped_strides[2];
+
+            out_ptr
+                .par_chunks_mut(d1 * d2)
+                .enumerate()
+                .for_each(|(i0, chunk)| {
+                    for i1 in 0..d1 {
+                        for i2 in 0..d2 {
+                            let out_idx = i1 * d2 + i2;
+                            let in_idx = i0 * s0 + i1 * s1 + i2 * s2;
+                            chunk[out_idx] = in_ptr[in_idx];
                         }
                     }
                 });

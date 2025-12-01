@@ -183,7 +183,9 @@ fn main() {
         {
             let grad_ref = model.wte.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(0, &mut model.wte.data, grad).unwrap();
+                optimizer
+                    .update(vec![&mut model.wte.data], vec![grad], 0)
+                    .unwrap();
             }
         }
         *model.wte.grad.borrow_mut() = None;
@@ -192,7 +194,9 @@ fn main() {
         {
             let grad_ref = model.wpe.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(1, &mut model.wpe.data, grad).unwrap();
+                optimizer
+                    .update(vec![&mut model.wpe.data], vec![grad], 1)
+                    .unwrap();
             }
         }
         *model.wpe.grad.borrow_mut() = None;
@@ -203,7 +207,9 @@ fn main() {
             {
                 let grad_ref = layer.weight.grad.borrow();
                 if let Some(grad) = grad_ref.as_ref() {
-                    optimizer.update(2, &mut layer.weight.data, grad).unwrap();
+                    optimizer
+                        .update(vec![&mut layer.weight.data], vec![grad], 2)
+                        .unwrap();
                 }
             }
             *layer.weight.grad.borrow_mut() = None;

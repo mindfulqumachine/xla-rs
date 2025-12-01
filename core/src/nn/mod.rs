@@ -24,8 +24,13 @@ pub mod module;
 pub mod norm;
 pub mod transformer;
 
+pub mod conv;
+pub mod pool;
+
 pub use activation::Activation;
+pub use conv::Conv2d;
 pub use embedding::Embedding;
 pub use linear::{AllowedLinearRank, Linear};
 pub use module::Module;
 pub use norm::{LayerNorm, RMSNorm};
+pub use pool::MaxPool2d;

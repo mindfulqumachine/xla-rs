@@ -14,14 +14,11 @@ impl<T: TensorElem> Sgd<T> {
     pub fn new(learning_rate: T) -> Self {
         Self { learning_rate }
     }
-}
 
-impl<T: TensorElem> Optimizer<T> for Sgd<T> {
-    fn update<const RANK: usize>(
+    fn update_one<const RANK: usize, D: crate::tensor::Device>(
         &mut self,
-        _key: usize,
-        param: &mut Tensor<T, RANK, Cpu>,
-        grad: &Tensor<T, RANK, Cpu>,
+        param: &mut Tensor<T, RANK, D>,
+        grad: &Tensor<T, RANK, D>,
     ) -> Result<()> {
         if param.shape() != grad.shape() {
             return Err(crate::tensor::TensorError::ShapeMismatch {
@@ -44,6 +41,35 @@ impl<T: TensorElem> Optimizer<T> for Sgd<T> {
     }
 }
 
+impl<T: TensorElem> Optimizer<T> for Sgd<T> {
+    fn update<const RANK: usize, D: crate::tensor::Device>(
+        &mut self,
+        params: Vec<&mut Tensor<T, RANK, D>>,
+        grads: Vec<&Tensor<T, RANK, D>>,
+        _key: usize,
+    ) -> Result<()> {
+        for (param, grad) in params.into_iter().zip(grads.into_iter()) {
+            self.update_one(param, grad)?;
+        }
+        Ok(())
+    }
+
+    fn set_lr(&mut self, lr: f32) {
+        self.learning_rate = T::from_f32(lr).unwrap();
+    }
+
+    fn state_dict(&self) -> std::collections::HashMap<String, Tensor<T, 1, crate::tensor::Cpu>> {
+        std::collections::HashMap::new()
+    }
+
+    fn load_state_dict(
+        &mut self,
+        _state: &std::collections::HashMap<String, Tensor<T, 1, crate::tensor::Cpu>>,
+    ) -> Result<()> {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,7 +87,7 @@ mod tests {
         let mut param = Tensor::new(vec![1.0, 2.0], [2]).unwrap();
         let grad = Tensor::new(vec![0.5, -0.5], [2]).unwrap();
 
-        sgd.update(0, &mut param, &grad).unwrap();
+        sgd.update(vec![&mut param], vec![&grad], 0).unwrap();
 
         // param = param - lr * grad
         // [1.0, 2.0] - 0.1 * [0.5, -0.5]
@@ -77,7 +103,16 @@ mod tests {
         let mut param = Tensor::new(vec![1.0, 2.0], [2]).unwrap();
         let grad = Tensor::new(vec![0.5], [1]).unwrap();
 
-        let result = sgd.update(0, &mut param, &grad);
+        let result = sgd.update(vec![&mut param], vec![&grad], 0);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sgd_set_lr() {
+        let mut sgd = Sgd::new(0.1);
+        assert_eq!(sgd.learning_rate, 0.1);
+
+        sgd.set_lr(0.05);
+        assert!((sgd.learning_rate - 0.05f32).abs() < 1e-6);
     }
 }

@@ -213,7 +213,7 @@ impl<T: TensorElem + Float> CausalLM<T> for GPT2LMHeadModel<T> {
                 let end = start + vocab_size;
                 let last_token_logits = &data[start..end];
 
-                let mut max_val = T::min_value();
+                let mut max_val = <T as num_traits::Bounded>::min_value();
                 let mut max_idx = 0;
                 for (i, &val) in last_token_logits.iter().enumerate() {
                     if val > max_val {

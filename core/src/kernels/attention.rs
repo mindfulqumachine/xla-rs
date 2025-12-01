@@ -1,5 +1,5 @@
 use crate::tensor::{Cpu, Result, Tensor, TensorElem};
-use num_traits::Float;
+use num_traits::{Bounded, Float};
 use rayon::prelude::*;
 
 pub const PARALLEL_THRESHOLD: usize = 4096;
@@ -376,7 +376,7 @@ pub fn fused_attention<T: TensorElem + Float>(
 
             // 1. Compute Scores
             let mut scores = vec![T::zero(); kv_len];
-            let mut max_score = T::min_value();
+            let mut max_score = <T as Bounded>::min_value();
 
             for pos in 0..kv_len {
                 let k_vec = &k_data[k_offset_base + pos * d..k_offset_base + (pos + 1) * d];

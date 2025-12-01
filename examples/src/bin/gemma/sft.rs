@@ -129,7 +129,9 @@ fn main() {
         {
             let grad_ref = embed.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(0, &mut embed.data, grad).unwrap();
+                optimizer
+                    .update(vec![&mut embed.data], vec![&grad], 0)
+                    .unwrap();
             }
         }
         *embed.grad.borrow_mut() = None;
@@ -137,7 +139,9 @@ fn main() {
         {
             let grad_ref = fc1.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(1, &mut fc1.weight.data, grad).unwrap();
+                optimizer
+                    .update(vec![&mut fc1.weight.data], vec![&grad], 1)
+                    .unwrap();
             }
         }
         *fc1.weight.grad.borrow_mut() = None;
@@ -145,7 +149,9 @@ fn main() {
         {
             let grad_ref = fc2.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(2, &mut fc2.weight.data, grad).unwrap();
+                optimizer
+                    .update(vec![&mut fc2.weight.data], vec![&grad], 2)
+                    .unwrap();
             }
         }
         *fc2.weight.grad.borrow_mut() = None;

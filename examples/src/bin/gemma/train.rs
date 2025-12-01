@@ -179,7 +179,9 @@ fn main() {
         {
             let grad_ref = model.embed.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
-                optimizer.update(0, &mut model.embed.data, grad).unwrap();
+                optimizer
+                    .update(vec![&mut model.embed.data], vec![grad], 0)
+                    .unwrap();
             }
         }
         *model.embed.grad.borrow_mut() = None;
@@ -189,7 +191,7 @@ fn main() {
             let grad_ref = model.fc1.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
                 optimizer
-                    .update(1, &mut model.fc1.weight.data, grad)
+                    .update(vec![&mut model.fc1.weight.data], vec![grad], 1)
                     .unwrap();
             }
         }
@@ -200,7 +202,7 @@ fn main() {
             let grad_ref = model.fc2.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
                 optimizer
-                    .update(2, &mut model.fc2.weight.data, grad)
+                    .update(vec![&mut model.fc2.weight.data], vec![grad], 2)
                     .unwrap();
             }
         }

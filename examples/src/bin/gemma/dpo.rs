@@ -164,7 +164,7 @@ fn main() {
             let grad_ref = policy_model.embed.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
                 optimizer
-                    .update(0, &mut policy_model.embed.data, grad)
+                    .update(vec![&mut policy_model.embed.data], vec![grad], 0)
                     .unwrap();
             }
         }
@@ -174,7 +174,7 @@ fn main() {
             let grad_ref = policy_model.fc1.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
                 optimizer
-                    .update(1, &mut policy_model.fc1.weight.data, grad)
+                    .update(vec![&mut policy_model.fc1.weight.data], vec![grad], 1)
                     .unwrap();
             }
         }
@@ -184,7 +184,7 @@ fn main() {
             let grad_ref = policy_model.fc2.weight.grad.borrow();
             if let Some(grad) = grad_ref.as_ref() {
                 optimizer
-                    .update(2, &mut policy_model.fc2.weight.data, grad)
+                    .update(vec![&mut policy_model.fc2.weight.data], vec![grad], 2)
                     .unwrap();
             }
         }

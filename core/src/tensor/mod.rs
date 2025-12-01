@@ -38,7 +38,7 @@
 //! > in memory. Understanding strides is crucial for implementing efficient operations like
 //! > broadcasting and transposing without copying data.
 
-use num_traits::{FromPrimitive, Num, NumAssign, ToPrimitive};
+use num_traits::{Bounded, FromPrimitive, Num, NumAssign, ToPrimitive};
 use std::fmt::Debug;
 use thiserror::Error;
 
@@ -69,6 +69,9 @@ pub enum TensorError {
     /// The requested operation is not supported (e.g., for a specific rank or type).
     #[error("Unsupported operation: {0}")]
     Unsupported(String),
+    /// An unknown error occurred (e.g., IO or serialization error).
+    #[error("Unknown error: {0}")]
+    Unknown(String),
 }
 
 pub type Result<T> = std::result::Result<T, TensorError>;
@@ -80,11 +83,23 @@ pub type Result<T> = std::result::Result<T, TensorError>;
 /// - `Num + ...`: Provides necessary numeric operations for tensor math.
 /// - `Send + Sync`: Required for parallel execution via `rayon`.
 pub trait TensorElem:
-    Num + NumAssign + Copy + Clone + Debug + Send + Sync + FromPrimitive + ToPrimitive + PartialOrd
+    Num
+    + NumAssign
+    + Copy
+    + Clone
+    + Debug
+    + Send
+    + Sync
+    + FromPrimitive
+    + ToPrimitive
+    + PartialOrd
+    + Bounded
 {
+    fn dtype_name() -> &'static str;
 }
 
-impl<T> TensorElem for T where
+impl<T> TensorElem for T
+where
     T: Num
         + NumAssign
         + Copy
@@ -95,7 +110,17 @@ impl<T> TensorElem for T where
         + FromPrimitive
         + ToPrimitive
         + PartialOrd
+        + Bounded
+        + 'static,
 {
+    fn dtype_name() -> &'static str {
+        let name = std::any::type_name::<T>();
+        // Handle fully qualified names if necessary, but primitives usually return "f32", "i32", etc.
+        // However, type_name is not stable for serialization (compiler dependent).
+        // But for "f32", "f64" it is usually consistent.
+        // Let's strip module path just in case.
+        name.split("::").last().unwrap_or(name)
+    }
 }
 
 /// The core Tensor struct.

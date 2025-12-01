@@ -17,11 +17,11 @@ The development strategy interleaves **Library Features** (coding) with **Book C
 ## Phase 2: Training Dynamics & Stability
 *Goal: Teach users how to stabilize training and manage experiments.*
 
-4.  - [ ] **[Library] Learning Rate Schedulers**
+4.  - [x] **[Library] Learning Rate Schedulers**
     *   *Why:* Transformers require warmup and decay to converge.
-5.  - [ ] **[Library] Checkpointing & Serialization**
+5.  - [x] **[Library] Checkpointing & Serialization**
     *   *Why:* Training takes hours; we need to save/resume.
-6.  - [ ] **[Book] Chapter: Optimization & Training Dynamics**
+6.  - [x] **[Book] Chapter: Optimization & Training Dynamics**
     *   *Why:* Explains the "black magic" of training (schedulers, clipping, regularization).
     *   *Dependency:* Requires Schedulers and Checkpointing.
 

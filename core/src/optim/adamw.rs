@@ -64,14 +64,13 @@ impl<T: TensorElem> AdamW<T> {
         self.weight_decay = weight_decay;
         self
     }
-}
 
-impl<T: TensorElem> Optimizer<T> for AdamW<T> {
-    fn update<const RANK: usize>(
+    fn update_one<const RANK: usize, D: crate::tensor::Device>(
         &mut self,
+        param: &mut Tensor<T, RANK, D>,
+        grad: &Tensor<T, RANK, D>,
         key: usize,
-        param: &mut Tensor<T, RANK, Cpu>,
-        grad: &Tensor<T, RANK, Cpu>,
+        idx: usize,
     ) -> Result<()> {
         if param.shape() != grad.shape() {
             return Err(crate::tensor::TensorError::ShapeMismatch {
@@ -83,7 +82,10 @@ impl<T: TensorElem> Optimizer<T> for AdamW<T> {
         let size = param.size();
 
         // Initialize state if missing
-        let entry = self.state.entry(key).or_insert_with(|| {
+        // Combine key and idx to get unique ID
+        let state_key = (key << 32) | idx;
+
+        let entry = self.state.entry(state_key).or_insert_with(|| {
             (
                 vec![T::zero(); size], // m
                 vec![T::zero(); size], // v
@@ -102,11 +104,6 @@ impl<T: TensorElem> Optimizer<T> for AdamW<T> {
         let one = T::one();
 
         // Bias correction terms
-        // bias_correction1 = 1 - beta1^t
-        // bias_correction2 = 1 - beta2^t
-        // We compute them as T.
-        // Note: T::pow is not standard in Num, but we can use repeated mul or convert to f64.
-        // TensorElem requires FromPrimitive/ToPrimitive.
         let b1_t = b1.to_f64().unwrap().powi(*step as i32);
         let b2_t = b2.to_f64().unwrap().powi(*step as i32);
         let bias_correction1 = T::from_f64(1.0 - b1_t).unwrap();
@@ -142,6 +139,89 @@ impl<T: TensorElem> Optimizer<T> for AdamW<T> {
     }
 }
 
+impl<T: TensorElem> Optimizer<T> for AdamW<T> {
+    fn update<const RANK: usize, D: crate::tensor::Device>(
+        &mut self,
+        params: Vec<&mut Tensor<T, RANK, D>>,
+        grads: Vec<&Tensor<T, RANK, D>>,
+        key: usize,
+    ) -> Result<()> {
+        for (i, (param, grad)) in params.into_iter().zip(grads.into_iter()).enumerate() {
+            self.update_one(param, grad, key, i)?;
+        }
+        Ok(())
+    }
+
+    fn set_lr(&mut self, lr: f32) {
+        self.learning_rate = T::from_f32(lr).unwrap();
+    }
+
+    fn state_dict(&self) -> std::collections::HashMap<String, Tensor<T, 1, crate::tensor::Cpu>> {
+        let mut dict = HashMap::new();
+        for (key, (m, v, step)) in &self.state {
+            // Key format: "state.{key}.m", "state.{key}.v", "state.{key}.step"
+            // m and v are Vec<T>. We need to convert to Tensor<T, 1, Cpu>.
+            // step is u64. We store as Tensor<T, 1, Cpu> (size 1).
+
+            let m_tensor = Tensor::new(m.clone(), [m.len()]).unwrap();
+            let v_tensor = Tensor::new(v.clone(), [v.len()]).unwrap();
+            let step_tensor = Tensor::new(vec![T::from_u64(*step).unwrap()], [1]).unwrap();
+
+            dict.insert(format!("state.{}.m", key), m_tensor);
+            dict.insert(format!("state.{}.v", key), v_tensor);
+            dict.insert(format!("state.{}.step", key), step_tensor);
+        }
+        dict
+    }
+
+    fn load_state_dict(
+        &mut self,
+        state: &std::collections::HashMap<String, Tensor<T, 1, crate::tensor::Cpu>>,
+    ) -> Result<()> {
+        // We need to reconstruct self.state from the flat dict.
+        // Keys are "state.{key}.m", etc.
+        // We can iterate over keys and parse.
+
+        // Group by key first
+        let mut grouped_state: HashMap<usize, (Option<Vec<T>>, Option<Vec<T>>, Option<u64>)> =
+            HashMap::new();
+
+        for (name, tensor) in state {
+            if name.starts_with("state.") {
+                let parts: Vec<&str> = name.split('.').collect();
+                if parts.len() == 3 {
+                    if let Ok(key) = parts[1].parse::<usize>() {
+                        let field = parts[2];
+                        let entry = grouped_state.entry(key).or_insert((None, None, None));
+
+                        match field {
+                            "m" => entry.0 = Some(tensor.data().to_vec()),
+                            "v" => entry.1 = Some(tensor.data().to_vec()),
+                            "step" => {
+                                let val = tensor.data()[0];
+                                entry.2 = Some(val.to_u64().unwrap());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        self.state.clear();
+        for (key, (m, v, step)) in grouped_state {
+            if let (Some(m), Some(v), Some(step)) = (m, v, step) {
+                self.state.insert(key, (m, v, step));
+            } else {
+                // Incomplete state for key, warn or error?
+                // For now, skip.
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,7 +242,7 @@ mod tests {
         let grad = Tensor::new(vec![0.1], [1]).unwrap();
 
         // Step 1
-        adam.update(0, &mut param, &grad).unwrap();
+        adam.update(vec![&mut param], vec![&grad], 0).unwrap();
 
         // Manual check:
         // m = 0.1 * 0.1 = 0.01
@@ -172,10 +252,10 @@ mod tests {
         // p = 1.0 - 0.1 * (0.1 / (sqrt(0.01) + 1e-8)) = 1.0 - 0.1 * (0.1 / 0.1) = 0.9
 
         let p = param.data()[0];
-        assert!((p - 0.9).abs() < 1e-5, "Step 1 failed: p={}", p);
+        assert!((p - 0.9f32).abs() < 1e-5, "Step 1 failed: p={}", p);
 
         // Step 2 (State persistence)
-        adam.update(0, &mut param, &grad).unwrap();
+        adam.update(vec![&mut param], vec![&grad], 0).unwrap();
         // Should use updated m and v
     }
 }

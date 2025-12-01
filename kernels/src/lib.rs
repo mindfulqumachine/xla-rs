@@ -1,11 +1,15 @@
-use num_traits::{FromPrimitive, Num, NumAssign, ToPrimitive};
+use num_traits::{Bounded, FromPrimitive, Num, NumAssign, ToPrimitive};
 use std::fmt::Debug;
 use thiserror::Error;
 
+pub mod cpu_conv2d;
 pub mod cpu_matmul;
+pub mod cpu_pool;
 pub mod cpu_transpose;
 
+pub use cpu_conv2d::cpu_conv2d;
 pub use cpu_matmul::cpu_matmul;
+pub use cpu_pool::cpu_max_pool2d;
 pub use cpu_transpose::cpu_transpose;
 
 #[derive(Error, Debug)]
@@ -22,7 +26,17 @@ pub type Result<T> = std::result::Result<T, KernelError>;
 /// Trait bound for elements that can be processed by kernels.
 /// This mirrors `TensorElem` in the main crate to avoid circular dependencies.
 pub trait KernelElem:
-    Num + NumAssign + Copy + Clone + Debug + Send + Sync + FromPrimitive + ToPrimitive + PartialOrd
+    Num
+    + NumAssign
+    + Copy
+    + Clone
+    + Debug
+    + Send
+    + Sync
+    + FromPrimitive
+    + ToPrimitive
+    + PartialOrd
+    + Bounded
 {
 }
 
@@ -37,5 +51,6 @@ impl<T> KernelElem for T where
         + FromPrimitive
         + ToPrimitive
         + PartialOrd
+        + Bounded
 {
 }

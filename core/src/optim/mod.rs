@@ -1,4 +1,5 @@
 pub mod adamw;
+pub mod scheduler;
 pub mod sgd;
 pub use adamw::AdamW;
 pub use sgd::Sgd;
@@ -43,10 +44,22 @@ pub trait Optimizer<T: TensorElem> {
     ///   This is used by stateful optimizers (like Adam) to track moments.
     /// * `param` - The parameter tensor to update.
     /// * `grad` - The gradient tensor.
-    fn update<const RANK: usize>(
+    fn update<const RANK: usize, D: crate::tensor::Device>(
         &mut self,
+        params: Vec<&mut Tensor<T, RANK, D>>,
+        grads: Vec<&Tensor<T, RANK, D>>,
         key: usize,
-        param: &mut Tensor<T, RANK, crate::tensor::Cpu>,
-        grad: &Tensor<T, RANK, crate::tensor::Cpu>,
+    ) -> Result<()>;
+
+    /// Sets the learning rate.
+    fn set_lr(&mut self, lr: f32);
+
+    /// Returns the optimizer state as a map of tensors.
+    fn state_dict(&self) -> std::collections::HashMap<String, Tensor<T, 1, crate::tensor::Cpu>>;
+
+    /// Loads the optimizer state from a map of tensors.
+    fn load_state_dict(
+        &mut self,
+        state: &std::collections::HashMap<String, Tensor<T, 1, crate::tensor::Cpu>>,
     ) -> Result<()>;
 }
